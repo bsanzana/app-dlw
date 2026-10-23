@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production / build output
+dist/
+*/dist/
+build/
+*/build/
+.astro/
+*/.astro/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Agent / Tool cache
+.codegraph/
+.agent/
+.agents/
+skills-lock.json

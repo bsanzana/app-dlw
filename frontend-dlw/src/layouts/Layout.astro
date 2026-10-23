@@ -1,0 +1,50 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+}
+
+const { title = "Neon Operator Downloader" } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>{title}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body
+    class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display scanline relative overflow-x-hidden"
+  >
+    <div
+      class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none z-0"
+    >
+    </div>
+    <div
+      class="relative flex h-auto min-h-screen w-full flex-col group/design-root z-10"
+    >
+      <div class="layout-container flex h-full grow flex-col">
+        <div class="px-4 lg:px-40 flex flex-1 justify-center py-5">
+          <div
+            class="layout-content-container flex flex-col max-w-[960px] w-full flex-1"
+          >
+            <slot />
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

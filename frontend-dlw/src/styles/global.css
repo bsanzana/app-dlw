@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #59f20d;
+  --color-background-light: #f6f8f5;
+  --color-background-dark: #0a0c09;
+  --color-surface: #121710;
+  --color-surface-light: #1d261a;
+  --color-border-color: #2a3825;
+
+  --font-display: "Space Grotesk", sans-serif;
+
+  --radius: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    font-family: "Space Grotesk", sans-serif;
+  }
+}
+
+@layer components {
+  .neon-border {
+    box-shadow:
+      0 0 10px rgba(89, 242, 13, 0.3),
+      inset 0 0 10px rgba(89, 242, 13, 0.1);
+    border: 1px solid rgba(89, 242, 13, 0.5);
+  }
+  .neon-text {
+    text-shadow: 0 0 8px rgba(89, 242, 13, 0.6);
+  }
+  .scanline {
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0),
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.1) 50%,
+      rgba(0, 0, 0, 0.1)
+    );
+    background-size: 100% 4px;
+  }
+
+  /* ── Download UI Components ────────────────────── */
+
+  .format-card {
+    cursor: pointer;
+    padding: 0.625rem 1rem;
+    border-radius: 0.375rem;
+    border: 1px solid #2a3825;
+    background: #121710;
+    color: #94a3b8;
+    font-family: 'Space Grotesk', monospace;
+    font-size: 0.8125rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .format-card:hover {
+    border-color: rgba(89, 242, 13, 0.5);
+    background: rgba(89, 242, 13, 0.05);
+    color: #e2e8f0;
+  }
+  .format-card.selected {
+    border-color: #59f20d;
+    background: rgba(89, 242, 13, 0.1);
+    color: #59f20d;
+    box-shadow: 0 0 12px rgba(89, 242, 13, 0.2);
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    border: 1px solid #2a3825;
+    background: #121710;
+    font-family: 'Space Grotesk', monospace;
+    font-size: 0.8125rem;
+    color: #94a3b8;
+  }
+  .status-bar.active {
+    border-color: rgba(89, 242, 13, 0.4);
+    color: #59f20d;
+  }
+
+  .loader {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid rgba(89, 242, 13, 0.2);
+    border-top-color: #59f20d;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .video-thumb {
+    border-radius: 0.5rem;
+    border: 1px solid #2a3825;
+    object-fit: cover;
+    width: 100%;
+    max-width: 320px;
+    aspect-ratio: 16 / 9;
+  }
+}

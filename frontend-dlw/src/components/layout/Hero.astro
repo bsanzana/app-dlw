@@ -1,0 +1,99 @@
+---
+
+---
+
+<div class="flex flex-col gap-2 text-center items-center mt-4 md:mt-6 mb-2">
+  <div
+    id="status-indicator"
+    class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-500/30 bg-slate-500/10 text-slate-400 text-xs font-mono uppercase tracking-widest mb-1 transition-all duration-500 shadow-sm"
+  >
+    <!-- Dot indicador visual único con animación -->
+    <span
+      id="status-dot"
+      class="w-2 h-2 rounded-full bg-slate-400 animate-pulse transition-all duration-300"></span>
+    <span id="status-text">Verificando Sistema...</span>
+  </div>
+
+  <h1
+    class="text-slate-100 text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight uppercase max-w-[700px]"
+  >
+    COPIA, PEGA Y <span
+      class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400"
+    >
+      DESCARGA</span
+    >
+  </h1>
+  <p class="text-slate-400 text-sm sm:text-base font-normal max-w-[500px]">
+    Pega el link de cualquier video y descárgalo al instante en la calidad que
+    quieras.
+  </p>
+</div>
+
+<script>
+  import { API_URL } from "../../services/downloader.service";
+
+  async function checkServerStatus() {
+    const indicator = document.getElementById("status-indicator");
+    const dot = document.getElementById("status-dot");
+    const text = document.getElementById("status-text");
+
+    if (!indicator || !dot || !text) return;
+
+    try {
+      // Petición al endpoint del backend
+      await fetch(`${API_URL}/downloads/info`, {
+        method: "OPTIONS",
+      }).catch(() => fetch(`${API_URL}/`));
+
+      // ── SERVIDOR ONLINE (Dot Neón con Latido) ───────────────
+      indicator.classList.remove(
+        "border-slate-500/30",
+        "bg-slate-500/10",
+        "text-slate-400",
+        "border-red-500/40",
+        "bg-red-500/10",
+        "text-red-500",
+        "shadow-[0_0_12px_rgba(239,68,68,0.25)]",
+      );
+      indicator.classList.add(
+        "border-primary/40",
+        "bg-primary/10",
+        "text-primary",
+        "shadow-[0_0_12px_rgba(89,242,13,0.25)]",
+      );
+
+      // Dot verde con latido neón
+      dot.className =
+        "w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(89,242,13,0.9)]";
+
+      text.innerText = "Sistema Online";
+    } catch (error) {
+      // ── SERVIDOR OFFLINE (Dot Rojo con Latido de Alerta) ────
+      indicator.classList.remove(
+        "border-slate-500/30",
+        "bg-slate-500/10",
+        "text-slate-400",
+        "border-primary/40",
+        "bg-primary/10",
+        "text-primary",
+        "shadow-[0_0_12px_rgba(89,242,13,0.25)]",
+      );
+      indicator.classList.add(
+        "border-red-500/40",
+        "bg-red-500/10",
+        "text-red-500",
+        "shadow-[0_0_12px_rgba(239,68,68,0.25)]",
+      );
+
+      // Dot rojo con latido de alerta
+      dot.className =
+        "w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.9)]";
+
+      text.innerText = "Sistema Offline";
+    }
+  }
+
+  // Verificar al cargar y cada 10 segundos
+  checkServerStatus();
+  setInterval(checkServerStatus, 10000);
+</script>
