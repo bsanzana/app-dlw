@@ -3,18 +3,102 @@ import "../styles/global.css";
 
 interface Props {
   title?: string;
+  description?: string;
+  image?: string;
+  canonicalURL?: string;
 }
 
-const { title = "Neon Operator Downloader" } = Astro.props;
+const {
+  title = "Descarga La Wea | Descargar Videos y Música Gratis, Rápido y en HD",
+  description = "Descarga videos y audios de YouTube, TikTok, Instagram y más en MP4 (1080p, 4K) o MP3 de alta calidad. Rápido, fácil, gratis y sin publicidad.",
+  image = "/favicon.svg",
+  canonicalURL = "https://app-dlw.vercel.app/",
+} = Astro.props;
+
+// Schema.org Structured Data (WebApplication + FAQPage)
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "name": "Descarga La Wea",
+      "url": canonicalURL,
+      "description": description,
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "All",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Descarga de videos en MP4 (1080p, 720p, 4K)",
+        "Conversión y extracción a MP3 de alta calidad",
+        "Soporte para YouTube, TikTok, Instagram, Twitter/X y más",
+        "Sin anuncios molestos ni ventanas emergentes",
+        "Velocidad ultra rápida con progreso en tiempo real"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "¿Cómo descargar videos y audios con Descarga La Wea?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Simplemente copia el link del video de YouTube u otra plataforma, pégalo en el campo de texto, selecciona la calidad deseada (1080p, 720p o MP3) y haz clic en Descargar."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Es gratis y seguro?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sí, es totalmente gratuito, libre de virus, no almacena tus datos y no muestra publicidad invasiva."
+          }
+        }
+      ]
+    }
+  ]
+};
 ---
 
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="es" class="dark">
   <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    
+    <!-- Título y Descripción SEO Principal -->
     <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalURL} />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="descargar videos youtube, descargar mp3 youtube, descargar videos tiktok, descargar audio mp3, youtube downloader gratis, descargar mp4 hd, descargar videos sin publicidad, online video downloader" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={image} />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:site_name" content="Descarga La Wea" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:url" content={canonicalURL} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+
+    <!-- Favicon e iconos -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#0a0c09" />
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -25,6 +109,9 @@ const { title = "Neon Operator Downloader" } = Astro.props;
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
   </head>
   <body
     class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display scanline relative overflow-x-hidden"

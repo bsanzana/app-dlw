@@ -1,67 +1,62 @@
 ---
 ---
 
-<div
-  class="flex flex-col gap-10 px-4 py-16 mt-10 border-t border-border-color/50 bg-surface/30 rounded-2xl mx-4 mb-10"
->
-  <div class="flex flex-col gap-2 text-center">
-    <h2 class="text-slate-100 text-2xl font-bold uppercase tracking-widest">
-      Especificaciones del Protocolo
+<section class="w-full max-w-[850px] mt-16 pt-10 border-t border-border-color/40 flex flex-col gap-8">
+  <div class="text-center flex flex-col gap-1.5">
+    <h2 class="text-slate-100 text-xl sm:text-2xl font-bold uppercase tracking-wide">
+      ¿Por qué usar Descarga La Wea?
     </h2>
+    <p class="text-slate-400 text-xs sm:text-sm font-normal">
+      Descargador gratuito, rápido y sin publicidad invasiva para videos y música.
+    </p>
   </div>
-  <div
-    class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6 p-0 max-w-[1000px] mx-auto w-full"
-  >
-    <div
-      class="flex flex-col gap-4 rounded-xl border border-border-color bg-surface p-6 hover:border-primary/50 transition-colors group"
-    >
-      <div
-        class="text-primary w-12 h-12 flex items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors"
-      >
-        <span class="material-symbols-outlined text-3xl">speed</span>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="flex flex-col gap-2 p-5 rounded-xl border border-border-color bg-surface/50">
+      <div class="text-primary flex items-center gap-2">
+        <span class="material-symbols-outlined text-[22px]">bolt</span>
+        <h3 class="text-slate-100 font-bold text-sm uppercase font-mono">Rápido y Directo</h3>
       </div>
-      <div class="flex flex-col gap-2">
-        <h3 class="text-slate-100 text-lg font-bold uppercase tracking-wide">
-          Hiper-Velocidad
-        </h3>
-        <p class="text-slate-400 text-sm font-normal leading-relaxed">
-          Conexiones multi-hilo que aseguran la máxima utilización del ancho de banda para una adquisición rápida.
-        </p>
-      </div>
+      <p class="text-slate-400 text-xs leading-relaxed">
+        Pega el link y obtén la descarga en segundos. Sin redirecciones extrañas, sin ventanas emergentes ni publicidad molesta.
+      </p>
     </div>
-    <div
-      class="flex flex-col gap-4 rounded-xl border border-border-color bg-surface p-6 hover:border-cyan-400/50 transition-colors group"
-    >
-      <div
-        class="text-cyan-400 w-12 h-12 flex items-center justify-center rounded-lg bg-cyan-400/10 group-hover:bg-cyan-400/20 transition-colors"
-      >
-        <span class="material-symbols-outlined text-3xl">security</span>
+
+    <div class="flex flex-col gap-2 p-5 rounded-xl border border-border-color bg-surface/50">
+      <div class="text-cyan-400 flex items-center gap-2">
+        <span class="material-symbols-outlined text-[22px]">high_quality</span>
+        <h3 class="text-slate-100 font-bold text-sm uppercase font-mono">Video en HD y 4K</h3>
       </div>
-      <div class="flex flex-col gap-2">
-        <h3 class="text-slate-100 text-lg font-bold uppercase tracking-wide">
-          Modo Sigilo
-        </h3>
-        <p class="text-slate-400 text-sm font-normal leading-relaxed">
-          El cifrado de extremo a extremo oculta tu huella digital durante las operaciones de extracción.
-        </p>
-      </div>
+      <p class="text-slate-400 text-xs leading-relaxed">
+        Descarga en máxima calidad (1080p, 1440p, 4K) o formatos ligeros (720p, 480p) con audio original siempre integrado.
+      </p>
     </div>
-    <div
-      class="flex flex-col gap-4 rounded-xl border border-border-color bg-surface p-6 hover:border-purple-400/50 transition-colors group"
-    >
-      <div
-        class="text-purple-400 w-12 h-12 flex items-center justify-center rounded-lg bg-purple-400/10 group-hover:bg-purple-400/20 transition-colors"
-      >
-        <span class="material-symbols-outlined text-3xl">block</span>
+
+    <div class="flex flex-col gap-2 p-5 rounded-xl border border-border-color bg-surface/50">
+      <div class="text-primary flex items-center gap-2">
+        <span class="material-symbols-outlined text-[22px]">music_note</span>
+        <h3 class="text-slate-100 font-bold text-sm uppercase font-mono">Audio y MP3</h3>
       </div>
-      <div class="flex flex-col gap-2">
-        <h3 class="text-slate-100 text-lg font-bold uppercase tracking-wide">
-          Cero Interferencia
-        </h3>
-        <p class="text-slate-400 text-sm font-normal leading-relaxed">
-          Interfaz limpia y libre de interrupciones comerciales o algoritmos de seguimiento.
-        </p>
+      <p class="text-slate-400 text-xs leading-relaxed">
+        Convierte cualquier video directamente a MP3 o descarga streams de audio nativos en alta fidelidad para escuchar sin conexión.
+      </p>
+    </div>
+  </div>
+
+  {/* Preguntas Frecuentes FAQ para SEO / Schema */}
+  <div class="mt-4 flex flex-col gap-4">
+    <h3 class="text-slate-200 text-base font-bold uppercase font-mono text-center">
+      Preguntas Frecuentes
+    </h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+      <div class="p-4 rounded-lg bg-surface/30 border border-border-color/60 flex flex-col gap-1">
+        <h4 class="text-slate-100 font-bold font-mono">¿Es gratuito el descargador?</h4>
+        <p class="text-slate-400">Sí, es 100% gratuito y no requiere registrarse ni instalar programas adicionales.</p>
+      </div>
+      <div class="p-4 rounded-lg bg-surface/30 border border-border-color/60 flex flex-col gap-1">
+        <h4 class="text-slate-100 font-bold font-mono">¿Qué plataformas son compatibles?</h4>
+        <p class="text-slate-400">YouTube, TikTok, Instagram, X (Twitter), Vimeo, Twitch y más de 100 sitios soportados.</p>
       </div>
     </div>
   </div>
-</div>
+</section>
