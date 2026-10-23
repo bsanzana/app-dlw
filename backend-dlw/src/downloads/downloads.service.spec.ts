@@ -104,6 +104,8 @@ describe('DownloadsService', () => {
             expect(args).toContain('137+140');
             expect(args).toContain('--merge-output-format');
             expect(args).toContain('mp4');
+            expect(args).toContain('--postprocessor-args');
+            expect(args).toContain('Merger:-c:v libx264 -c:a aac -movflags +faststart');
             expect(args).toContain('--no-playlist');
         });
 

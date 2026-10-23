@@ -326,6 +326,8 @@ export class DownloadsService {
                 ...baseArgs,
                 '-f', formatSelection,
                 '--merge-output-format', 'mp4',
+                // Compatibilidad universal (WhatsApp, iOS, Android, web): H.264 + AAC + faststart
+                '--postprocessor-args', 'Merger:-c:v libx264 -c:a aac -movflags +faststart',
                 '-o', outputPath,
                 url,
             ];
