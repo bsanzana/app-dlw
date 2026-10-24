@@ -1,8 +1,13 @@
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Confiar en el proxy inverso (Nginx) para obtener la IP real del cliente vía X-Forwarded-For
+  app.set('trust proxy', true);
+
   app.setGlobalPrefix('api');
   app.enableCors({ origin: '*' });
   const port = process.env.PORT ?? 3001;

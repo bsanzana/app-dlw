@@ -12,6 +12,14 @@ describe('DownloadsController', () => {
         startDownload: jest.fn(),
         getJob: jest.fn(),
         cleanupFile: jest.fn(),
+        extractClientIp: jest.fn().mockReturnValue('186.20.30.40'),
+        checkAndIncrementIpQuota: jest.fn(),
+        getIpQuotaStatus: jest.fn().mockReturnValue({
+            ip: '186.20.30.40',
+            allowed: true,
+            remaining: 2,
+            maxPerDay: 2,
+        }),
     };
 
     beforeEach(async () => {
@@ -37,6 +45,18 @@ describe('DownloadsController', () => {
         expect(controller).toBeDefined();
     });
 
+    describe('getQuota', () => {
+        it('should return quota status for the requesting IP', () => {
+            const req: any = { headers: {} };
+            const result = controller.getQuota(req);
+            expect(result).toBeDefined();
+            expect(result.ip).toBe('186.20.30.40');
+            expect(result.remaining).toBe(2);
+            expect(mockDownloadsService.extractClientIp).toHaveBeenCalledWith(req);
+            expect(mockDownloadsService.getIpQuotaStatus).toHaveBeenCalledWith('186.20.30.40');
+        });
+    });
+
     describe('getInfo', () => {
         it('should throw 400 when url is empty or invalid', async () => {
             await expect(controller.getInfo('')).rejects.toThrow(HttpException);
@@ -59,22 +79,27 @@ describe('DownloadsController', () => {
             await expect(controller.startDownload('https://youtube.com', '', 'video_audio', 'Test')).rejects.toThrow(HttpException);
         });
 
-        it('should start download and return jobId', async () => {
+        it('should validate quota, start download and pass clientIp', async () => {
             mockDownloadsService.startDownload.mockReturnValue({ jobId: 'job-123' });
 
+            const req: any = { headers: { 'x-real-ip': '186.20.30.40' } };
             const result = await controller.startDownload(
                 'https://youtube.com/watch?v=abc',
                 '137+140',
                 'video_audio',
                 'Mi Video',
+                req,
             );
 
             expect(result).toEqual({ jobId: 'job-123' });
+            expect(mockDownloadsService.extractClientIp).toHaveBeenCalledWith(req);
+            expect(mockDownloadsService.checkAndIncrementIpQuota).toHaveBeenCalledWith('186.20.30.40');
             expect(mockDownloadsService.startDownload).toHaveBeenCalledWith(
                 'https://youtube.com/watch?v=abc',
                 '137+140',
                 'video_audio',
                 'Mi Video',
+                '186.20.30.40',
             );
         });
     });

@@ -5,11 +5,12 @@ import {
     Get,
     Param,
     Res,
+    Req,
     HttpException,
     HttpStatus,
     Logger,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import { DownloadsService } from './downloads.service';
 import type { FormatType } from './downloads.service';
@@ -19,6 +20,16 @@ export class DownloadsController {
     private readonly logger = new Logger(DownloadsController.name);
 
     constructor(private readonly downloadsService: DownloadsService) { }
+
+    /**
+     * GET /downloads/quota
+     * Returns remaining download quota and bandwidth limits for the caller's IP
+     */
+    @Get('quota')
+    getQuota(@Req() req: Request) {
+        const clientIp = this.downloadsService.extractClientIp(req);
+        return this.downloadsService.getIpQuotaStatus(clientIp);
+    }
 
     /**
      * POST /downloads/info
@@ -44,6 +55,7 @@ export class DownloadsController {
     /**
      * POST /downloads/start
      * Starts download in background and returns a jobId
+     * Validates and increments daily download quota for the caller IP (max 2 per day)
      */
     @Post('start')
     async startDownload(
@@ -51,6 +63,7 @@ export class DownloadsController {
         @Body('formatSelection') formatSelection: string,
         @Body('type') type: FormatType,
         @Body('title') title: string,
+        @Req() req?: Request,
     ) {
         if (!url || !formatSelection) {
             throw new HttpException(
@@ -58,6 +71,11 @@ export class DownloadsController {
                 HttpStatus.BAD_REQUEST,
             );
         }
+
+        const clientIp = this.downloadsService.extractClientIp(req);
+
+        // Validar y consumir cuota diaria por IP para proteger el ancho de banda
+        this.downloadsService.checkAndIncrementIpQuota(clientIp);
 
         const validTypes: FormatType[] = ['video_audio', 'video_only', 'audio_only'];
         const resolvedType = validTypes.includes(type) ? type : 'video_audio';
@@ -67,6 +85,7 @@ export class DownloadsController {
             formatSelection,
             resolvedType,
             title || 'video',
+            clientIp,
         );
     }
 
@@ -116,14 +135,23 @@ export class DownloadsController {
             );
         }
 
+        const stat = fs.statSync(job.filePath);
+
+        // Verificar que el archivo no supere el límite máximo de 1 GB
+        if (stat.size > this.downloadsService.maxDownloadSizeBytes) {
+            this.downloadsService.cleanupFile(job.filePath);
+            throw new HttpException(
+                `El archivo excede el tamaño máximo permitido de ${this.downloadsService.maxDownloadSizeMb} MB (1 GB)`,
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+
         const sanitizedTitle = (job.title || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
         const filename = `${sanitizedTitle}.${job.ext}`;
 
         const contentType = job.ext === 'mp3' ? 'audio/mpeg' : 'video/mp4';
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-        const stat = fs.statSync(job.filePath);
         res.setHeader('Content-Length', stat.size);
 
         const readStream = fs.createReadStream(job.filePath);
@@ -134,11 +162,11 @@ export class DownloadsController {
             this.downloadsService.cleanupFile(job.filePath);
         });
 
-        readStream.on('error', (err) => {
-            this.logger.error(`Error al transmitir archivo para tarea ${jobId}:`, err);
-            this.downloadsService.cleanupFile(job.filePath);
-            if (!res.headersSent) {
-                res.status(500).json({ error: 'Error al enviar el archivo' });
+        res.on('close', () => {
+            // Si el cliente canceló la descarga antes de completarse
+            if (!res.writableEnded) {
+                this.logger.warn(`Conexión cerrada por el cliente para tarea ${jobId}. Limpiando archivo.`);
+                this.downloadsService.cleanupFile(job.filePath);
             }
         });
     }

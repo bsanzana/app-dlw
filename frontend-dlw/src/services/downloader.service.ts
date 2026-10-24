@@ -50,6 +50,17 @@ export interface JobStatusResponse {
   ext?: string;
 }
 
+export interface QuotaStatusResponse {
+  ip: string;
+  allowed: boolean;
+  used: number;
+  remaining: number;
+  maxPerDay: number;
+  maxDownloadSizeMb: number;
+  resetInSeconds: number;
+  resetInHours: number;
+}
+
 export class DownloaderService {
   /**
    * Fetches metadata and format choices for a given URL
@@ -109,5 +120,16 @@ export class DownloaderService {
    */
   static getDownloadUrl(jobId: string): string {
     return `${API_URL}/downloads/${jobId}/file`;
+  }
+
+  /**
+   * Checks IP download quota and bandwidth limits
+   */
+  static async getQuota(): Promise<QuotaStatusResponse> {
+    const res = await fetch(`${API_URL}/downloads/quota`);
+    if (!res.ok) {
+      throw new Error("Error al consultar cuota disponible");
+    }
+    return res.json();
   }
 }

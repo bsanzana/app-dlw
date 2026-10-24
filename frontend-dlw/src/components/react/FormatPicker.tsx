@@ -120,21 +120,25 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
           filteredFormats.map((f) => {
             const isSelected = selectedFormatId === f.id;
             const sizeLabel = formatBytes(f.filesize);
+            const isOverSize = f.filesize !== null && f.filesize > 1024 * 1024 * 1024;
+            const isButtonDisabled = disabled || isOverSize;
 
             return (
               <button
                 key={f.id}
                 type="button"
-                onClick={() => setSelectedFormatId(f.id)}
-                disabled={disabled}
+                onClick={() => !isOverSize && setSelectedFormatId(f.id)}
+                disabled={isButtonDisabled}
                 className={`flex flex-col text-left p-3 rounded border transition-all ${
-                  isSelected
-                    ? "border-primary bg-primary/15 shadow-[0_0_12px_rgba(89,242,13,0.3)] text-slate-100"
-                    : "border-border-color bg-background-dark hover:border-primary/50 text-slate-300"
-                } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  isOverSize
+                    ? "border-red-900/50 bg-red-950/20 opacity-60 cursor-not-allowed text-slate-500"
+                    : isSelected
+                    ? "border-primary bg-primary/15 shadow-[0_0_12px_rgba(89,242,13,0.3)] text-slate-100 cursor-pointer"
+                    : "border-border-color bg-background-dark hover:border-primary/50 text-slate-300 cursor-pointer"
+                }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <span className={`font-bold text-sm font-mono ${isSelected ? "text-primary" : "text-slate-100"}`}>
+                  <span className={`font-bold text-sm font-mono ${isOverSize ? "text-slate-400" : isSelected ? "text-primary" : "text-slate-100"}`}>
                     {f.resolution}
                   </span>
                   <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-surface border border-border-color uppercase">
@@ -151,7 +155,13 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
                   {sizeLabel && <span>{sizeLabel}</span>}
                 </div>
 
-                {f.note && (
+                {isOverSize && (
+                  <span className="text-[10px] text-amber-400 font-mono mt-1">
+                    ⚠️ Excede límite máx. de 1 GB
+                  </span>
+                )}
+
+                {f.note && !isOverSize && (
                   <span className="text-[10px] text-slate-500 font-mono mt-1 truncate">
                     {f.note}
                   </span>

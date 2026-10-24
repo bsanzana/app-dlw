@@ -19,10 +19,17 @@ services:
       - POT_PROVIDER_URL=http://dlw_pot_provider:4416
       - COOKIES_PATH=/app/cookies/cookies.txt
       - PROXY_URL=${PROXY_URL:-}
+      - MAX_DOWNLOADS_PER_IP_DAY=${MAX_DOWNLOADS_PER_IP_DAY:-2}
+      - MAX_DOWNLOAD_SIZE_MB=${MAX_DOWNLOAD_SIZE_MB:-1024}
     volumes:
       - ./cookies:/app/cookies:ro
     depends_on:
       - pot_provider
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
     # No exponemos puertos en el host en producción; Nginx se conecta vía la red externa
     networks:
       - dlw_net

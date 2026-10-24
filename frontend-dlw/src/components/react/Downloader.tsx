@@ -250,10 +250,14 @@ export function Downloader() {
         </button>
       </div>
 
-      <div className="flex justify-between items-center mt-2.5 px-2 w-full">
+      <div className="flex flex-wrap justify-between items-center gap-2 mt-2.5 px-2 w-full">
         <p className="text-[11px] sm:text-xs text-slate-500 font-mono flex items-center gap-1.5 truncate">
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0"></span>{" "}
           <span className="truncate">Soporta: YouTube, TikTok, Instagram.</span>
+        </p>
+        <p className="text-[11px] sm:text-xs text-slate-400 font-mono flex items-center gap-1.5 bg-surface/80 px-2.5 py-1 rounded border border-border-color/60">
+          <span className="material-symbols-outlined text-[14px] text-primary">data_usage</span>
+          <span>Máx. 2 videos/día por IP • Hasta 1 GB</span>
         </p>
       </div>
 
