@@ -257,7 +257,7 @@ export function Downloader() {
         </p>
         <p className="text-[11px] sm:text-xs text-slate-400 font-mono flex items-center gap-1.5 bg-surface/80 px-2.5 py-1 rounded border border-border-color/60">
           <span className="material-symbols-outlined text-[14px] text-primary">data_usage</span>
-          <span>Máx. 2 videos/día por IP • Hasta 1 GB</span>
+          <span>Máx. 2 videos/día por IP • Hasta 500 MB</span>
         </p>
       </div>
 

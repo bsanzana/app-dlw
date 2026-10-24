@@ -70,7 +70,7 @@ export class DownloadsService {
 
     readonly maxDownloadSizeMb = process.env.MAX_DOWNLOAD_SIZE_MB
         ? parseInt(process.env.MAX_DOWNLOAD_SIZE_MB, 10)
-        : 1024; // Por defecto 1024 MB (1 GB)
+        : 500; // Por defecto 500 MB
 
     readonly maxDownloadSizeBytes = this.maxDownloadSizeMb * 1024 * 1024;
 
@@ -160,11 +160,8 @@ export class DownloadsService {
         const history = (this.ipQuotas.get(clientIp) || []).filter((t) => now - t < oneDay);
 
         if (history.length >= this.maxDownloadsPerIpDay) {
-            const oldest = Math.min(...history);
-            const resetInMs = Math.max(0, oldest + oneDay - now);
-            const hoursLeft = Math.ceil(resetInMs / (60 * 60 * 1000));
             throw new HttpException(
-                `Has alcanzado el límite diario de descargas (máximo ${this.maxDownloadsPerIpDay} videos por día por IP para proteger el ancho de banda del servidor). Podrás descargar nuevamente en aproximadamente ${hoursLeft} hora(s).`,
+                'Has alcanzado el límite de descargas diario.',
                 HttpStatus.TOO_MANY_REQUESTS,
             );
         }
@@ -310,13 +307,13 @@ export class DownloadsService {
      * 1. video_audio (guaranteed combined with audio)
      * 2. video_only (muted)
      * 3. audio_only (various qualities)
-     * Automatically filters out formats exceeding maxDownloadSizeBytes (1 GB)
+     * Automatically filters out formats exceeding maxDownloadSizeBytes (500 MB)
      */
     parseFormats(raw: any): VideoMetadata {
         const rawFormats: any[] = raw.formats || [];
         const validFormats = rawFormats.filter((f) => {
             if (!f || !f.format_id || f.format_id.startsWith('sb')) return false;
-            // Descartar formatos que excedan el límite de tamaño permitido (1 GB)
+            // Descartar formatos que excedan el límite de tamaño permitido (500 MB)
             if (f.filesize && f.filesize > this.maxDownloadSizeBytes) return false;
             if (f.filesize_approx && f.filesize_approx > this.maxDownloadSizeBytes) return false;
             return true;
@@ -324,7 +321,7 @@ export class DownloadsService {
 
         // Si se encontraron formatos pero todos fueron descartados por tamaño
         if (rawFormats.length > 0 && validFormats.length === 0) {
-            throw new Error(`El video excede el límite máximo de descarga permitido de ${this.maxDownloadSizeMb} MB (1 GB).`);
+            throw new Error(`El video excede el límite máximo de descarga permitido de ${this.maxDownloadSizeMb} MB.`);
         }
 
         const videoOnlyList = validFormats.filter(
@@ -492,7 +489,7 @@ export class DownloadsService {
 
         // Si se encontraron formatos originalmente pero todos fueron descartados por tamaño
         if (rawFormats.length > 0 && resultFormats.length === 0) {
-            throw new Error(`El video excede el límite máximo de descarga permitido de ${this.maxDownloadSizeMb} MB (1 GB).`);
+            throw new Error(`El video excede el límite máximo de descarga permitido de ${this.maxDownloadSizeMb} MB.`);
         }
 
         return {
@@ -507,7 +504,7 @@ export class DownloadsService {
 
     /**
      * Builds the exact arguments for yt-dlp according to the requested format and type
-     * Enforces --max-filesize to protect server bandwidth (max 1 GB)
+     * Enforces --max-filesize to protect server bandwidth (max 500 MB)
      */
     buildYtDlpArgs(url: string, formatSelection: string, type: FormatType, outputPath: string): string[] {
         const baseArgs = [
@@ -625,10 +622,10 @@ export class DownloadsService {
                 try {
                     const currentBytes = fs.statSync(tempPath).size;
                     if (currentBytes > this.maxDownloadSizeBytes) {
-                        this.logger.warn(`[Job ${jobId}] Exceeded 1 GB size limit (${currentBytes} bytes). Aborting.`);
+                        this.logger.warn(`[Job ${jobId}] Exceeded size limit (${currentBytes} bytes). Aborting.`);
                         ytProcess.kill('SIGTERM');
                         job.status = 'failed';
-                        job.error = `La descarga fue cancelada porque excede el límite máximo de ${this.maxDownloadSizeMb} MB (1 GB).`;
+                        job.error = `La descarga fue cancelada porque excede el límite máximo de ${this.maxDownloadSizeMb} MB.`;
                         this.cleanupFile(tempPath);
                         if (job.clientIp) {
                             this.refundIpQuota(job.clientIp);
@@ -647,7 +644,7 @@ export class DownloadsService {
                     const finalSize = fs.statSync(tempPath).size;
                     if (finalSize > this.maxDownloadSizeBytes) {
                         job.status = 'failed';
-                        job.error = `El archivo generado excede el límite de ${this.maxDownloadSizeMb} MB (1 GB).`;
+                        job.error = `El archivo generado excede el límite de ${this.maxDownloadSizeMb} MB.`;
                         this.cleanupFile(tempPath);
                         if (job.clientIp) this.refundIpQuota(job.clientIp);
                         return;
@@ -663,7 +660,7 @@ export class DownloadsService {
 
                 const lowerErr = stderr.toLowerCase();
                 if (lowerErr.includes('max-filesize') || lowerErr.includes('larger than')) {
-                    job.error = `El archivo excede el tamaño máximo permitido de ${this.maxDownloadSizeMb} MB (1 GB).`;
+                    job.error = `El archivo excede el tamaño máximo permitido de ${this.maxDownloadSizeMb} MB.`;
                 } else {
                     job.error = stderr || `Proceso finalizado (código ${code})`;
                 }

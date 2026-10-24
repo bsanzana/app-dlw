@@ -137,11 +137,11 @@ export class DownloadsController {
 
         const stat = fs.statSync(job.filePath);
 
-        // Verificar que el archivo no supere el límite máximo de 1 GB
+        // Verificar que el archivo no supere el límite máximo de tamaño
         if (stat.size > this.downloadsService.maxDownloadSizeBytes) {
             this.downloadsService.cleanupFile(job.filePath);
             throw new HttpException(
-                `El archivo excede el tamaño máximo permitido de ${this.downloadsService.maxDownloadSizeMb} MB (1 GB)`,
+                `El archivo excede el tamaño máximo permitido de ${this.downloadsService.maxDownloadSizeMb} MB`,
                 HttpStatus.BAD_REQUEST,
             );
         }

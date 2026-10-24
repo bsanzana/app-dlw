@@ -28,8 +28,8 @@ describe('DownloadsService', () => {
             { format_id: '136', ext: 'mp4', vcodec: 'avc1.4D401F', acodec: 'none', height: 720, fps: 30, tbr: 1200, filesize: 80000000 },
             { format_id: '137', ext: 'mp4', vcodec: 'avc1.640028', acodec: 'none', height: 1080, fps: 30, tbr: 3000, filesize: 200000000 },
             { format_id: '248', ext: 'webm', vcodec: 'vp9', acodec: 'none', height: 1080, fps: 30, tbr: 1500, filesize: 180000000 },
-            // Gigantic format exceeding 1 GB (1,500,000,000 bytes) -> should be filtered out
-            { format_id: '999', ext: 'mp4', vcodec: 'avc1.640028', acodec: 'none', height: 2160, fps: 60, tbr: 25000, filesize: 1500000000 },
+            // Format exceeding 500 MB (600,000,000 bytes) -> should be filtered out
+            { format_id: '999', ext: 'mp4', vcodec: 'avc1.640028', acodec: 'none', height: 2160, fps: 60, tbr: 25000, filesize: 600000000 },
         ],
     };
 
@@ -48,7 +48,7 @@ describe('DownloadsService', () => {
     });
 
     describe('parseFormats', () => {
-        it('should correctly parse and classify formats and filter out formats exceeding 1 GB', () => {
+        it('should correctly parse and classify formats and filter out formats exceeding 500 MB', () => {
             const parsed = service.parseFormats(mockRawYtDlp);
 
             expect(parsed.id).toBe('test_video_123');
@@ -60,7 +60,7 @@ describe('DownloadsService', () => {
             const videoOnly = parsed.formats.filter((f) => f.type === 'video_only');
             const audioOnly = parsed.formats.filter((f) => f.type === 'audio_only');
 
-            // Format 999 (> 1GB) must NOT exist in parsed formats
+            // Format 999 (> 500MB) must NOT exist in parsed formats
             const hugeFormat = parsed.formats.find((f) => f.formatSelection.includes('999'));
             expect(hugeFormat).toBeUndefined();
 
@@ -90,13 +90,13 @@ describe('DownloadsService', () => {
             expect(hasSb).toBe(false);
         });
 
-        it('should throw an error if all available formats exceed 1 GB', () => {
+        it('should throw an error if all available formats exceed 500 MB', () => {
             const hugeVideo = {
                 id: 'huge_123',
                 title: 'Huge 8K Video',
                 duration: 600,
                 formats: [
-                    { format_id: 'h1', ext: 'mp4', height: 4320, filesize: 5000000000 },
+                    { format_id: 'h1', ext: 'mp4', height: 4320, filesize: 600000000 },
                 ],
             };
 
@@ -107,10 +107,10 @@ describe('DownloadsService', () => {
     });
 
     describe('buildYtDlpArgs', () => {
-        it('should enforce --max-filesize 1024M', () => {
+        it('should enforce --max-filesize 500M', () => {
             const args = service.buildYtDlpArgs('https://youtube.com/watch?v=123', '137+140', 'video_audio', '/tmp/test.mp4');
             expect(args).toContain('--max-filesize');
-            expect(args).toContain('1024M');
+            expect(args).toContain('500M');
         });
 
         it('should build proper args for video + audio with mp4 merge', () => {
@@ -179,7 +179,7 @@ describe('DownloadsService', () => {
                 service.checkAndIncrementIpQuota(ip);
             } catch (err: any) {
                 expect(err.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
-                expect(err.message).toContain('Has alcanzado el límite diario de descargas');
+                expect(err.message).toBe('Has alcanzado el límite de descargas diario.');
             }
         });
 

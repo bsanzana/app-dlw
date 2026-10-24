@@ -18,7 +18,7 @@ services:
       - COOKIES_PATH=/app/cookies/cookies.txt
       - PROXY_URL=${PROXY_URL:-}
       - MAX_DOWNLOADS_PER_IP_DAY=${MAX_DOWNLOADS_PER_IP_DAY:-2}
-      - MAX_DOWNLOAD_SIZE_MB=${MAX_DOWNLOAD_SIZE_MB:-1024}
+      - MAX_DOWNLOAD_SIZE_MB=${MAX_DOWNLOAD_SIZE_MB:-500}
     depends_on:
       - pot_provider
     volumes:

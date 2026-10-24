@@ -120,7 +120,7 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
           filteredFormats.map((f) => {
             const isSelected = selectedFormatId === f.id;
             const sizeLabel = formatBytes(f.filesize);
-            const isOverSize = f.filesize !== null && f.filesize > 1024 * 1024 * 1024;
+            const isOverSize = f.filesize !== null && f.filesize > 500 * 1024 * 1024;
             const isButtonDisabled = disabled || isOverSize;
 
             return (
@@ -157,7 +157,7 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
 
                 {isOverSize && (
                   <span className="text-[10px] text-amber-400 font-mono mt-1">
-                    ⚠️ Excede límite máx. de 1 GB
+                    ⚠️ Excede límite máx. de 500 MB
                   </span>
                 )}
 
