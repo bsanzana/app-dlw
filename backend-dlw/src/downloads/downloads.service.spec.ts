@@ -115,7 +115,7 @@ describe('DownloadsService', () => {
         it('should include pot provider url if POT_PROVIDER_URL env is set', () => {
             process.env.POT_PROVIDER_URL = 'http://dlw_pot_provider:4416';
             const args = service.buildYtDlpArgs('https://youtube.com/watch?v=123', '137+140', 'video_audio', '/tmp/test.mp4');
-            expect(args).toContain('youtubepot-provider:url=http://dlw_pot_provider:4416');
+            expect(args).toContain('youtubepot-bgutilhttp:base_url=http://dlw_pot_provider:4416');
             delete process.env.POT_PROVIDER_URL;
         });
 

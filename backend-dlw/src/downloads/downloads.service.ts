@@ -86,7 +86,7 @@ export class DownloadsService {
                 '--ignore-config',
                 '--no-playlist',
                 '--extractor-args', 'youtube:player_client=android,web',
-                ...(potUrl ? ['--extractor-args', `youtubepot-provider:url=${potUrl}`] : []),
+                ...(potUrl ? ['--extractor-args', `youtubepot-bgutilhttp:base_url=${potUrl}`] : []),
                 url,
             ];
 
@@ -313,7 +313,7 @@ export class DownloadsService {
             '--ignore-config',
             '--no-playlist',
             '--extractor-args', 'youtube:player_client=android,web',
-            ...(potUrl ? ['--extractor-args', `youtubepot-provider:url=${potUrl}`] : []),
+            ...(potUrl ? ['--extractor-args', `youtubepot-bgutilhttp:base_url=${potUrl}`] : []),
         ];
 
         if (type === 'audio_only' && (formatSelection === 'bestaudio/best' || !formatSelection.includes('+'))) {
