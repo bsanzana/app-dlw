@@ -30,3 +30,7 @@ Thumbs.db
 .agent/
 .agents/
 skills-lock.json
+
+# VPS Nginx proxy configs (managed directly on the server)
+nginx/
+*.conf

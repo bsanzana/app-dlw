@@ -3,7 +3,7 @@ services:
     build:
       context: ./backend-dlw
       dockerfile: Dockerfile.dev
-    container_name: app-dlw-backend-dev
+    container_name: dlw_api_dev
     ports:
       - "3001:3001"
     environment:
@@ -18,11 +18,11 @@ services:
     build:
       context: ./frontend-dlw
       dockerfile: Dockerfile.dev
-    container_name: app-dlw-frontend-dev
+    container_name: dlw_client_dev
     ports:
       - "4321:4321"
     environment:
-      - PUBLIC_API_URL=http://localhost:3001
+      - PUBLIC_API_URL=http://localhost:3001/api
       - ASTRO_TELEMETRY_DISABLED=1
     volumes:
       - ./frontend-dlw:/app

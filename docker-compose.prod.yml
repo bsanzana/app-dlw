@@ -1,0 +1,20 @@
+services:
+  app_backend:
+    build:
+      context: ./backend-dlw
+      dockerfile: Dockerfile
+    container_name: dlw_api
+    restart: always
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+    # No exponemos puertos en el host en producción; Nginx se conecta vía la red externa
+    networks:
+      - dlw_net
+      - nginx-proxy-net
+
+networks:
+  dlw_net:
+    driver: bridge
+  nginx-proxy-net:
+    external: true
