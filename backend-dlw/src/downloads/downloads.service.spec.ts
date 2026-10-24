@@ -1,4 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { DownloadsService, FormatType } from './downloads.service';
 
 describe('DownloadsService', () => {
@@ -119,6 +122,27 @@ describe('DownloadsService', () => {
             const args = service.buildYtDlpArgs('https://youtube.com/watch?v=123', '137+140', 'video_audio', '/tmp/test.mp4');
             expect(args).toContain('youtubepot-bgutilhttp:base_url=http://dlw_pot_provider:4416');
             delete process.env.POT_PROVIDER_URL;
+        });
+
+        it('should include proxy if PROXY_URL env is set', () => {
+            process.env.PROXY_URL = 'http://proxy.test:8080';
+            const args = service.buildYtDlpArgs('https://youtube.com/watch?v=123', '137+140', 'video_audio', '/tmp/test.mp4');
+            expect(args).toContain('--proxy');
+            expect(args).toContain('http://proxy.test:8080');
+            delete process.env.PROXY_URL;
+        });
+
+        it('should include cookies only if cookies file exists', () => {
+            const tmpCookiePath = path.join(os.tmpdir(), 'test_burner_cookies.txt');
+            fs.writeFileSync(tmpCookiePath, '# Netscape HTTP Cookie File');
+            process.env.COOKIES_PATH = tmpCookiePath;
+
+            const args = service.buildYtDlpArgs('https://youtube.com/watch?v=123', '137+140', 'video_audio', '/tmp/test.mp4');
+            expect(args).toContain('--cookies');
+            expect(args).toContain(path.join(os.tmpdir(), 'yt-dlp-cookies.txt'));
+
+            fs.unlinkSync(tmpCookiePath);
+            delete process.env.COOKIES_PATH;
         });
 
         it('should build proper args for MP3 extraction', () => {

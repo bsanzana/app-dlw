@@ -15,10 +15,13 @@ services:
       - PORT=3001
       - NODE_ENV=development
       - POT_PROVIDER_URL=http://pot_provider:4416
+      - COOKIES_PATH=/app/cookies/cookies.txt
+      - PROXY_URL=${PROXY_URL:-}
     depends_on:
       - pot_provider
     volumes:
       - ./backend-dlw:/app
+      - ./cookies:/app/cookies:ro
       - /app/node_modules
     restart: unless-stopped
 

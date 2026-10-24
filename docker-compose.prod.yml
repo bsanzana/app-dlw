@@ -17,6 +17,10 @@ services:
       - PORT=3001
       - NODE_ENV=production
       - POT_PROVIDER_URL=http://dlw_pot_provider:4416
+      - COOKIES_PATH=/app/cookies/cookies.txt
+      - PROXY_URL=${PROXY_URL:-}
+    volumes:
+      - ./cookies:/app/cookies:ro
     depends_on:
       - pot_provider
     # No exponemos puertos en el host en producción; Nginx se conecta vía la red externa

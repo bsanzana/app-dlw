@@ -24,6 +24,8 @@ pnpm-debug.log*
 # YouTube Cookies (never commit secrets/session cookies to git)
 cookies.txt
 *.cookies.txt
+cookies/
+*/cookies/
 
 # OS files
 .DS_Store

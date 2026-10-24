@@ -74,20 +74,51 @@ export class DownloadsService {
     }
 
     /**
+     * Resolves common yt-dlp arguments including PO token provider, optional burner cookies, and proxy
+     */
+    getCommonYtDlpArgs(): string[] {
+        const potUrl = process.env.POT_PROVIDER_URL;
+        const proxyUrl = process.env.PROXY_URL;
+        const cookiesPath = process.env.COOKIES_PATH || '/app/cookies/cookies.txt';
+
+        const args = [
+            '--no-warnings',
+            '--ignore-config',
+            '--no-playlist',
+            '--remote-components', 'ejs:github',
+            '--extractor-args', 'youtube:player-client=mweb,tv,web_safari',
+            ...(potUrl ? ['--extractor-args', `youtubepot-bgutilhttp:base_url=${potUrl}`] : []),
+        ];
+
+        if (fs.existsSync(cookiesPath)) {
+            // yt-dlp tries to save updated session cookies upon exit.
+            // If mounted read-only (:ro), yt-dlp crashes with Errno 30.
+            // Copying to /tmp ensures yt-dlp has a writable cookie file.
+            const writableCookiePath = path.join(os.tmpdir(), 'yt-dlp-cookies.txt');
+            try {
+                fs.copyFileSync(cookiesPath, writableCookiePath);
+                args.push('--cookies', writableCookiePath);
+            } catch (err) {
+                this.logger.warn(`Failed to copy cookies to tmp: ${err.message}`);
+                args.push('--cookies', cookiesPath);
+            }
+        }
+
+        if (proxyUrl) {
+            args.push('--proxy', proxyUrl);
+        }
+
+        return args;
+    }
+
+    /**
      * Executes yt-dlp to extract raw video metadata and format choices
      */
     async getMetadata(url: string): Promise<VideoMetadata> {
         return new Promise((resolve, reject) => {
-            const potUrl = process.env.POT_PROVIDER_URL;
-
             const args = [
                 '--dump-json',
-                '--no-warnings',
-                '--ignore-config',
-                '--no-playlist',
-                '--remote-components', 'ejs:github',
-                '--extractor-args', 'youtube:player-client=mweb,tv,web_safari',
-                ...(potUrl ? ['--extractor-args', `youtubepot-bgutilhttp:base_url=${potUrl}`] : []),
+                ...this.getCommonYtDlpArgs(),
                 url,
             ];
 
@@ -307,16 +338,7 @@ export class DownloadsService {
      * Builds the exact arguments for yt-dlp according to the requested format and type
      */
     buildYtDlpArgs(url: string, formatSelection: string, type: FormatType, outputPath: string): string[] {
-        const potUrl = process.env.POT_PROVIDER_URL;
-
-        const baseArgs = [
-            '--no-warnings',
-            '--ignore-config',
-            '--no-playlist',
-            '--remote-components', 'ejs:github',
-            '--extractor-args', 'youtube:player-client=mweb,tv,web_safari',
-            ...(potUrl ? ['--extractor-args', `youtubepot-bgutilhttp:base_url=${potUrl}`] : []),
-        ];
+        const baseArgs = this.getCommonYtDlpArgs();
 
         if (type === 'audio_only' && (formatSelection === 'bestaudio/best' || !formatSelection.includes('+'))) {
             // Convert to MP3
