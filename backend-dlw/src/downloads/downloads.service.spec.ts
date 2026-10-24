@@ -107,6 +107,16 @@ describe('DownloadsService', () => {
             expect(args).toContain('--postprocessor-args');
             expect(args).toContain('Merger:-c:v libx264 -c:a aac -movflags +faststart');
             expect(args).toContain('--no-playlist');
+            expect(args).toContain('--extractor-args');
+            expect(args).toContain('youtube:player_client=android,web');
+            expect(args).not.toContain('--cookies');
+        });
+
+        it('should include pot provider url if POT_PROVIDER_URL env is set', () => {
+            process.env.POT_PROVIDER_URL = 'http://dlw_pot_provider:4416';
+            const args = service.buildYtDlpArgs('https://youtube.com/watch?v=123', '137+140', 'video_audio', '/tmp/test.mp4');
+            expect(args).toContain('youtubepot-provider:url=http://dlw_pot_provider:4416');
+            delete process.env.POT_PROVIDER_URL;
         });
 
         it('should build proper args for MP3 extraction', () => {

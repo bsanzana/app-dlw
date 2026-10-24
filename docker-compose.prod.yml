@@ -1,4 +1,12 @@
 services:
+  # Proveedor autónomo de PO-Tokens BotGuard (100% Anónimo, sin cuentas ni cookies)
+  pot_provider:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: dlw_pot_provider
+    restart: always
+    networks:
+      - dlw_net
+
   app_backend:
     build:
       context: ./backend-dlw
@@ -8,6 +16,9 @@ services:
     environment:
       - PORT=3001
       - NODE_ENV=production
+      - POT_PROVIDER_URL=http://dlw_pot_provider:4416
+    depends_on:
+      - pot_provider
     # No exponemos puertos en el host en producción; Nginx se conecta vía la red externa
     networks:
       - dlw_net

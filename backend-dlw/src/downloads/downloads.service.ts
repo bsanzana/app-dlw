@@ -78,11 +78,15 @@ export class DownloadsService {
      */
     async getMetadata(url: string): Promise<VideoMetadata> {
         return new Promise((resolve, reject) => {
+            const potUrl = process.env.POT_PROVIDER_URL;
+
             const args = [
                 '--dump-json',
                 '--no-warnings',
                 '--ignore-config',
                 '--no-playlist',
+                '--extractor-args', 'youtube:player_client=android,web',
+                ...(potUrl ? ['--extractor-args', `youtubepot-provider:url=${potUrl}`] : []),
                 url,
             ];
 
@@ -302,10 +306,14 @@ export class DownloadsService {
      * Builds the exact arguments for yt-dlp according to the requested format and type
      */
     buildYtDlpArgs(url: string, formatSelection: string, type: FormatType, outputPath: string): string[] {
+        const potUrl = process.env.POT_PROVIDER_URL;
+
         const baseArgs = [
             '--no-warnings',
             '--ignore-config',
             '--no-playlist',
+            '--extractor-args', 'youtube:player_client=android,web',
+            ...(potUrl ? ['--extractor-args', `youtubepot-provider:url=${potUrl}`] : []),
         ];
 
         if (type === 'audio_only' && (formatSelection === 'bestaudio/best' || !formatSelection.includes('+'))) {

@@ -25,9 +25,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL https://deno.land/install.sh | sh && \
     mv /root/.deno/bin/deno /usr/local/bin/deno
 
-# Instalar yt-dlp última versión
+# Instalar yt-dlp última versión y plugin bgutil-ytdlp-pot-provider
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
-    chmod a+rx /usr/local/bin/yt-dlp
+    chmod a+rx /usr/local/bin/yt-dlp && \
+    pip3 install --no-cache-dir --break-system-packages bgutil-ytdlp-pot-provider
 
 WORKDIR /app
 
