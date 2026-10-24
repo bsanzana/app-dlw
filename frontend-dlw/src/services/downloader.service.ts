@@ -1,6 +1,9 @@
-export const API_URL = (import.meta as any).env?.PUBLIC_API_URL !== undefined
-  ? (import.meta as any).env.PUBLIC_API_URL
-  : "http://localhost:3001";
+export const API_URL =
+  (import.meta as any).env?.PUBLIC_API_URL !== undefined
+    ? (import.meta as any).env.PUBLIC_API_URL
+    : (import.meta as any).env?.DEV
+    ? "http://localhost:3001/api"
+    : "/api";
 
 export type FormatType = "video_audio" | "video_only" | "audio_only";
 
