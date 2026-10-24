@@ -107,8 +107,10 @@ describe('DownloadsService', () => {
             expect(args).toContain('--postprocessor-args');
             expect(args).toContain('Merger:-c:v libx264 -c:a aac -movflags +faststart');
             expect(args).toContain('--no-playlist');
+            expect(args).toContain('--remote-components');
+            expect(args).toContain('ejs:github');
             expect(args).toContain('--extractor-args');
-            expect(args).toContain('youtube:player_client=android,web');
+            expect(args).toContain('youtube:player-client=mweb,tv,web_safari');
             expect(args).not.toContain('--cookies');
         });
 

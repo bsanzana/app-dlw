@@ -85,7 +85,8 @@ export class DownloadsService {
                 '--no-warnings',
                 '--ignore-config',
                 '--no-playlist',
-                '--extractor-args', 'youtube:player_client=android,web',
+                '--remote-components', 'ejs:github',
+                '--extractor-args', 'youtube:player-client=mweb,tv,web_safari',
                 ...(potUrl ? ['--extractor-args', `youtubepot-bgutilhttp:base_url=${potUrl}`] : []),
                 url,
             ];
@@ -312,7 +313,8 @@ export class DownloadsService {
             '--no-warnings',
             '--ignore-config',
             '--no-playlist',
-            '--extractor-args', 'youtube:player_client=android,web',
+            '--remote-components', 'ejs:github',
+            '--extractor-args', 'youtube:player-client=mweb,tv,web_safari',
             ...(potUrl ? ['--extractor-args', `youtubepot-bgutilhttp:base_url=${potUrl}`] : []),
         ];
 
