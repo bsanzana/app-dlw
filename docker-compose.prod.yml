@@ -21,6 +21,10 @@ services:
       - PROXY_URL=${PROXY_URL:-}
       - MAX_DOWNLOADS_PER_IP_DAY=${MAX_DOWNLOADS_PER_IP_DAY:-2}
       - MAX_DOWNLOAD_SIZE_MB=${MAX_DOWNLOAD_SIZE_MB:-500}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     volumes:
       - ./cookies:/app/cookies:ro
     depends_on:

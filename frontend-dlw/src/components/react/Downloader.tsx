@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   DownloaderService,
+  type QuotaStatusResponse,
   type VideoMetadata,
   type VideoFormatOption,
 } from "../../services/downloader.service";
+import { formatBytes, supabase } from "../../lib/supabase";
 import { FormatPicker } from "./FormatPicker";
 import { StatusDisplay } from "./StatusDisplay";
 
@@ -18,8 +20,31 @@ export function Downloader() {
   const [progressPercent, setProgressPercent] = useState<number | null>(null);
   const [downloadSpeed, setDownloadSpeed] = useState<string | null>(null);
   const [eta, setEta] = useState<string | null>(null);
+  const [quota, setQuota] = useState<QuotaStatusResponse | null>(null);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  const refreshQuota = async () => {
+    try {
+      const q = await DownloaderService.getQuota();
+      setQuota(q);
+    } catch {
+      // Ignore silent quota fetch errors
+    }
+  };
+
+  useEffect(() => {
+    void refreshQuota();
+    if (!supabase) return;
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(() => {
+      void refreshQuota();
+    });
+
+    return () => {
+      subscription.subscription.unsubscribe();
+    };
+  }, []);
 
   // Typewriter placeholder logic
   const [currentPlaceholder, setCurrentPlaceholder] = useState("");
@@ -133,7 +158,9 @@ export function Downloader() {
         url.trim(),
         format.formatSelection,
         format.type,
-        metadata.title
+        metadata.title,
+        format.vcodec,
+        format.acodec
       );
 
       setStatus("Descargando y procesando archivo en el servidor...", true, true);
@@ -155,6 +182,15 @@ export function Downloader() {
               job.downloadSpeed,
               job.eta
             );
+          } else if (job.status === "processing") {
+            setStatus(
+              "Procesando y empaquetando archivo en el servidor...",
+              true,
+              true,
+              100,
+              null,
+              null
+            );
           } else if (job.status === "completed") {
             clearPolling();
             setStatus("¡Descarga lista! Transfiriendo archivo al navegador...", true, false, 100);
@@ -166,6 +202,7 @@ export function Downloader() {
             setIsProcessing(false);
             setTimeout(() => {
               setStatus("Archivo transferido al navegador.", true, false);
+              void refreshQuota();
             }, 3000);
           } else if (job.status === "failed") {
             clearPolling();
@@ -257,7 +294,19 @@ export function Downloader() {
         </p>
         <p className="text-[11px] sm:text-xs text-slate-400 font-mono flex items-center gap-1.5 bg-surface/80 px-2.5 py-1 rounded border border-border-color/60">
           <span className="material-symbols-outlined text-[14px] text-primary">data_usage</span>
-          <span>Máx. 2 videos/día por IP • Hasta 500 MB</span>
+          {quota?.authenticated ? (
+            <span>
+              Cuenta verificada: {formatBytes(quota.bytesTransferred ?? 0)} /{" "}
+              {formatBytes(quota.bandwidthLimitBytes ?? 10 * 1024 ** 3)} • Hasta{" "}
+              {quota.maxDownloadSizeMb} MB/archivo
+            </span>
+          ) : (
+            <span>
+              Máx. {quota?.maxPerDay ?? 2} videos/día por IP
+              {typeof quota?.remaining === "number" ? ` (${quota.remaining} disp.)` : ""} • Hasta{" "}
+              {quota?.maxDownloadSizeMb ?? 500} MB
+            </span>
+          )}
         </p>
       </div>
 

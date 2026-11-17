@@ -19,6 +19,10 @@ services:
       - PROXY_URL=${PROXY_URL:-}
       - MAX_DOWNLOADS_PER_IP_DAY=${MAX_DOWNLOADS_PER_IP_DAY:-2}
       - MAX_DOWNLOAD_SIZE_MB=${MAX_DOWNLOAD_SIZE_MB:-500}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     depends_on:
       - pot_provider
     volumes:
@@ -37,6 +41,8 @@ services:
     environment:
       - PUBLIC_API_URL=http://localhost:3001/api
       - ASTRO_TELEMETRY_DISABLED=1
+      - PUBLIC_SUPABASE_URL=${PUBLIC_SUPABASE_URL:-}
+      - PUBLIC_SUPABASE_ANON_KEY=${PUBLIC_SUPABASE_ANON_KEY:-}
     volumes:
       - ./frontend-dlw:/app
       - /app/node_modules

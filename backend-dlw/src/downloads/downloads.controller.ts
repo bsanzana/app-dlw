@@ -9,24 +9,40 @@ import {
     HttpException,
     HttpStatus,
     Logger,
+    Optional,
+    UseGuards,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import * as fs from 'fs';
 import { DownloadsService } from './downloads.service';
 import type { FormatType } from './downloads.service';
+import { OptionalSupabaseAuthGuard, type AuthenticatedRequest } from '../auth/auth.guards';
+import { UsageService } from '../usage/usage.service';
 
 @Controller('downloads')
+@UseGuards(OptionalSupabaseAuthGuard)
 export class DownloadsController {
     private readonly logger = new Logger(DownloadsController.name);
 
-    constructor(private readonly downloadsService: DownloadsService) { }
+    constructor(
+        private readonly downloadsService: DownloadsService,
+        @Optional() private readonly usageService?: UsageService,
+    ) { }
 
     /**
      * GET /downloads/quota
-     * Returns remaining download quota and bandwidth limits for the caller's IP
+     * Returns remaining download quota and bandwidth limits for the authenticated user or caller's IP
      */
     @Get('quota')
-    getQuota(@Req() req: Request) {
+    async getQuota(@Req() req: AuthenticatedRequest) {
+        if (req?.user && this.usageService) {
+            const userQuota = await this.usageService.getUserQuotaStatus(req.user);
+            return {
+                ...userQuota,
+                maxDownloadSizeMb: this.downloadsService.maxDownloadSizeMb,
+            };
+        }
+
         const clientIp = this.downloadsService.extractClientIp(req);
         return this.downloadsService.getIpQuotaStatus(clientIp);
     }
@@ -36,9 +52,13 @@ export class DownloadsController {
      * Fetches metadata and full list of available format combinations
      */
     @Post('info')
-    async getInfo(@Body('url') url: string) {
+    async getInfo(@Body('url') url: string, @Req() req?: AuthenticatedRequest) {
         if (!url || typeof url !== 'string' || !url.trim()) {
             throw new HttpException('La URL es requerida', HttpStatus.BAD_REQUEST);
+        }
+
+        if (req?.user && this.usageService) {
+            await this.usageService.recordRequest(req.user);
         }
 
         try {
@@ -63,7 +83,9 @@ export class DownloadsController {
         @Body('formatSelection') formatSelection: string,
         @Body('type') type: FormatType,
         @Body('title') title: string,
-        @Req() req?: Request,
+        @Req() req?: AuthenticatedRequest,
+        @Body('vcodec') vcodec?: string,
+        @Body('acodec') acodec?: string,
     ) {
         if (!url || !formatSelection) {
             throw new HttpException(
@@ -74,8 +96,14 @@ export class DownloadsController {
 
         const clientIp = this.downloadsService.extractClientIp(req);
 
-        // Validar y consumir cuota diaria por IP para proteger el ancho de banda
-        this.downloadsService.checkAndIncrementIpQuota(clientIp);
+        if (req?.user && this.usageService) {
+            // Usuario autenticado: sin límite de descargas/día por IP, sujeto a cuota de ancho de banda (default 10 GB)
+            await this.usageService.checkUserBandwidthQuota(req.user);
+            await this.usageService.recordDownload(req.user);
+        } else {
+            // Usuario anónimo: validar y consumir cuota diaria por IP (2/día)
+            this.downloadsService.checkAndIncrementIpQuota(clientIp);
+        }
 
         const validTypes: FormatType[] = ['video_audio', 'video_only', 'audio_only'];
         const resolvedType = validTypes.includes(type) ? type : 'video_audio';
@@ -86,6 +114,9 @@ export class DownloadsController {
             resolvedType,
             title || 'video',
             clientIp,
+            vcodec,
+            acodec,
+            req?.user?.id,
         );
     }
 
@@ -159,6 +190,9 @@ export class DownloadsController {
 
         res.on('finish', () => {
             this.logger.log(`Stream finalizado para tarea ${jobId}. Limpiando archivo.`);
+            if (job.userId && this.usageService) {
+                void this.usageService.recordBandwidth(job.userId, stat.size);
+            }
             this.downloadsService.cleanupFile(job.filePath);
         });
 

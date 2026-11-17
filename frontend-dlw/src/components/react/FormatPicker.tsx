@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import type { VideoMetadata, VideoFormatOption, FormatType } from "../../services/downloader.service";
 
 interface FormatPickerProps {
@@ -23,6 +23,7 @@ function formatBytes(bytes: number | null): string {
 export function FormatPicker({ metadata, onDownload, disabled = false }: FormatPickerProps) {
   const [filter, setFilter] = useState<"all" | FormatType>("all");
   const [selectedFormatId, setSelectedFormatId] = useState<string | null>(null);
+  const downloadButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const formats = metadata.formats || [];
 
@@ -32,6 +33,16 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
   });
 
   const selectedFormat = formats.find((f) => f.id === selectedFormatId) || null;
+
+  const handleSelectFormat = (formatId: string) => {
+    setSelectedFormatId(formatId);
+    requestAnimationFrame(() => {
+      downloadButtonRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  };
 
   const handleDownloadClick = () => {
     if (selectedFormat && !disabled) {
@@ -127,7 +138,7 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
               <button
                 key={f.id}
                 type="button"
-                onClick={() => !isOverSize && setSelectedFormatId(f.id)}
+                onClick={() => !isOverSize && handleSelectFormat(f.id)}
                 disabled={isButtonDisabled}
                 className={`flex flex-col text-left p-3 rounded border transition-all ${
                   isOverSize
@@ -178,6 +189,7 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
 
       {/* Botón de Descarga */}
       <button
+        ref={downloadButtonRef}
         type="button"
         onClick={handleDownloadClick}
         disabled={!selectedFormat || disabled}

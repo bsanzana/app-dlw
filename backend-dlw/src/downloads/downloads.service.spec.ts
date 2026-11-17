@@ -90,6 +90,28 @@ describe('DownloadsService', () => {
             expect(hasSb).toBe(false);
         });
 
+        it('should prefer H.264 (avc1) video and AAC (mp4a) audio for video_audio to avoid slow re-encoding', () => {
+            const rawWithVp9HigherTbr = {
+                id: 'vp9_test',
+                title: 'VP9 Higher Bitrate Video',
+                duration: 120,
+                formats: [
+                    { format_id: '251', ext: 'webm', vcodec: 'none', acodec: 'opus', abr: 160, filesize: 3200000 },
+                    { format_id: '140', ext: 'm4a', vcodec: 'none', acodec: 'mp4a.40.2', abr: 128, filesize: 3000000 },
+                    { format_id: '248', ext: 'webm', vcodec: 'vp9', acodec: 'none', height: 1080, fps: 30, tbr: 4500, filesize: 180000000 },
+                    { format_id: '137', ext: 'mp4', vcodec: 'avc1.640028', acodec: 'none', height: 1080, fps: 30, tbr: 3000, filesize: 200000000 },
+                ],
+            };
+
+            const parsed = service.parseFormats(rawWithVp9HigherTbr);
+            const va1080 = parsed.formats.find((f) => f.type === 'video_audio' && f.height === 1080);
+
+            expect(va1080).toBeDefined();
+            expect(va1080?.formatSelection).toBe('137+140');
+            expect(va1080?.vcodec).toBe('avc1.640028');
+            expect(va1080?.acodec).toBe('mp4a.40.2');
+        });
+
         it('should throw an error if all available formats exceed 500 MB', () => {
             const hugeVideo = {
                 id: 'huge_123',
@@ -113,19 +135,41 @@ describe('DownloadsService', () => {
             expect(args).toContain('500M');
         });
 
-        it('should build proper args for video + audio with mp4 merge', () => {
+        it('should build proper args for video + audio with fast fallback when codecs are unknown', () => {
             const args = service.buildYtDlpArgs('https://youtube.com/watch?v=123', '137+140', 'video_audio', '/tmp/test.mp4');
             expect(args).toContain('-f');
             expect(args).toContain('137+140');
             expect(args).toContain('--merge-output-format');
             expect(args).toContain('mp4');
             expect(args).toContain('--postprocessor-args');
-            expect(args).toContain('Merger:-c:v libx264 -c:a aac -movflags +faststart');
+            expect(args).toContain('Merger:-c:v libx264 -preset veryfast -c:a aac -movflags +faststart');
             expect(args).toContain('--no-playlist');
             expect(args).toContain('--remote-components');
             expect(args).toContain('ejs:github');
             expect(args).toContain('--extractor-args');
             expect(args).toContain('youtube:player-client=mweb,tv,web_safari');
+        });
+
+        it('should stream-copy video and audio when codecs are already H.264 and AAC', () => {
+            const args = service.buildYtDlpArgs(
+                'https://youtube.com/watch?v=123',
+                '137+140',
+                'video_audio',
+                '/tmp/test.mp4',
+                { vcodec: 'avc1.640028', acodec: 'mp4a.40.2' },
+            );
+            expect(args).toContain('Merger:-c:v copy -c:a copy -movflags +faststart');
+        });
+
+        it('should transcode only non-H.264 video with veryfast preset while copying AAC audio', () => {
+            const args = service.buildYtDlpArgs(
+                'https://youtube.com/watch?v=123',
+                '248+140',
+                'video_audio',
+                '/tmp/test.mp4',
+                { vcodec: 'vp9', acodec: 'mp4a.40.2' },
+            );
+            expect(args).toContain('Merger:-c:v libx264 -preset veryfast -c:a copy -movflags +faststart');
         });
 
         it('should include pot provider url if POT_PROVIDER_URL env is set', () => {
@@ -217,12 +261,40 @@ describe('DownloadsService', () => {
         });
     });
 
+    describe('parseYtDlpProgressLine', () => {
+        it('should parse download progress and transition to processing on postprocessor lines', () => {
+            const job: any = {
+                id: 'job-1',
+                url: 'https://youtube.com/watch?v=123',
+                formatSelection: '137+140',
+                type: 'video_audio',
+                title: 'Test',
+                ext: 'mp4',
+                status: 'downloading',
+                createdAt: Date.now(),
+            };
+
+            service.parseYtDlpProgressLine(job, '[download]  45.2% of  120.50MiB at 12.30MiB/s ETA 00:05');
+            expect(job.status).toBe('downloading');
+            expect(job.progressPercent).toBe(45.2);
+            expect(job.totalBytes).toBe('120.50MiB');
+            expect(job.downloadSpeed).toBe('12.30MiB/s');
+            expect(job.eta).toBe('00:05');
+
+            service.parseYtDlpProgressLine(job, '[Merger] Merging formats into "/tmp/test.mp4"');
+            expect(job.status).toBe('processing');
+            expect(job.progressPercent).toBe(100);
+            expect(job.downloadSpeed).toBeUndefined();
+            expect(job.eta).toBeUndefined();
+        });
+    });
+
     describe('Concurrency and Limits', () => {
-        it('should reject starting download if max concurrent limit is reached', () => {
+        it('should reject starting download if max concurrent limit is reached (including processing jobs)', () => {
             for (let i = 0; i < 3; i++) {
                 (service as any).jobs.set(`job-${i}`, {
                     id: `job-${i}`,
-                    status: 'downloading',
+                    status: i === 2 ? 'processing' : 'downloading',
                     createdAt: Date.now(),
                 });
             }

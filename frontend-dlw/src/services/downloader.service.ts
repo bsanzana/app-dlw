@@ -1,3 +1,5 @@
+import { getAccessToken } from "../lib/supabase";
+
 export const API_URL =
   (import.meta as any).env?.PUBLIC_API_URL !== undefined
     ? (import.meta as any).env.PUBLIC_API_URL
@@ -40,7 +42,7 @@ export interface StartJobResponse {
 
 export interface JobStatusResponse {
   id: string;
-  status: "downloading" | "completed" | "failed";
+  status: "downloading" | "processing" | "completed" | "failed";
   progressPercent?: number;
   downloadSpeed?: string | null;
   eta?: string | null;
@@ -51,14 +53,29 @@ export interface JobStatusResponse {
 }
 
 export interface QuotaStatusResponse {
-  ip: string;
+  authenticated?: boolean;
+  email?: string;
+  isAdmin?: boolean;
+  unlimitedRequests?: boolean;
+  bytesTransferred?: number;
+  bandwidthLimitBytes?: number;
+  remainingBytes?: number;
+  ip?: string;
   allowed: boolean;
-  used: number;
-  remaining: number;
-  maxPerDay: number;
+  used?: number;
+  remaining?: number;
+  maxPerDay?: number;
   maxDownloadSizeMb: number;
-  resetInSeconds: number;
-  resetInHours: number;
+  resetInSeconds?: number;
+  resetInHours?: number;
+}
+
+async function buildAuthHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  return {
+    ...(extra || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
 export class DownloaderService {
@@ -68,7 +85,7 @@ export class DownloaderService {
   static async fetchMetadata(url: string): Promise<VideoMetadata> {
     const res = await fetch(`${API_URL}/downloads/info`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await buildAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ url }),
     });
 
@@ -87,12 +104,14 @@ export class DownloaderService {
     url: string,
     formatSelection: string,
     type: FormatType,
-    title: string
+    title: string,
+    vcodec?: string | null,
+    acodec?: string | null
   ): Promise<StartJobResponse> {
     const res = await fetch(`${API_URL}/downloads/start`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, formatSelection, type, title }),
+      headers: await buildAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ url, formatSelection, type, title, vcodec, acodec }),
     });
 
     if (!res.ok) {
@@ -126,7 +145,9 @@ export class DownloaderService {
    * Checks IP download quota and bandwidth limits
    */
   static async getQuota(): Promise<QuotaStatusResponse> {
-    const res = await fetch(`${API_URL}/downloads/quota`);
+    const res = await fetch(`${API_URL}/downloads/quota`, {
+      headers: await buildAuthHeaders(),
+    });
     if (!res.ok) {
       throw new Error("Error al consultar cuota disponible");
     }

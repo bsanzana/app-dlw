@@ -9,7 +9,11 @@ async function bootstrap() {
   app.set('trust proxy', true);
 
   app.setGlobalPrefix('api');
-  app.enableCors({ origin: '*' });
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Authorization',
+  });
   const port = process.env.PORT ?? 3001;
   await app.listen(port, '0.0.0.0');
   console.log(`Backend running on http://0.0.0.0:${port}/api`);

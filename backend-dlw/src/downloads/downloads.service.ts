@@ -34,6 +34,11 @@ export interface VideoMetadata {
     formats: VideoFormatOption[];
 }
 
+export interface BuildYtDlpOptions {
+    vcodec?: string | null;
+    acodec?: string | null;
+}
+
 export interface DownloadJob {
     id: string;
     url: string;
@@ -41,7 +46,7 @@ export interface DownloadJob {
     type: FormatType;
     title: string;
     ext: string;
-    status: 'downloading' | 'completed' | 'failed';
+    status: 'downloading' | 'processing' | 'completed' | 'failed';
     progressPercent?: number;
     downloadSpeed?: string;
     eta?: string;
@@ -51,6 +56,7 @@ export interface DownloadJob {
     error?: string;
     createdAt: number;
     clientIp?: string;
+    userId?: string;
 }
 
 @Injectable()
@@ -349,6 +355,8 @@ export class DownloadsService {
             return (b.abr || b.tbr || 0) - (a.abr || a.tbr || 0);
         });
         const bestAudio = sortedAudio[0] ?? null;
+        // Prefer AAC (mp4a) for MP4 merges so FFmpeg can stream-copy audio without re-encoding
+        const bestMp4Audio = sortedAudio.find((f) => this.isAacCodec(f.acodec)) ?? bestAudio;
 
         const resultFormats: VideoFormatOption[] = [];
 
@@ -367,13 +375,20 @@ export class DownloadsService {
             }
         }
 
-        // Add or upgrade with separate video streams paired with best audio
+        // Add or upgrade with separate video streams paired with best MP4-compatible audio
         for (const f of videoOnlyList) {
             const h = f.height || 0;
             if (h > 0) {
                 const current = heightsMap.get(h);
-                if (!current || (!current.isProgressive && (f.tbr || 0) > (current.tbr || 0))) {
+                if (!current) {
                     heightsMap.set(h, { ...f, isProgressive: false });
+                } else if (!current.isProgressive) {
+                    const fIsH264 = this.isH264Codec(f.vcodec);
+                    const currentIsH264 = this.isH264Codec(current.vcodec);
+                    // Prefer H.264 (avc1) over VP9/AV1 so FFmpeg can copy video without slow CPU transcoding
+                    if ((fIsH264 && !currentIsH264) || (fIsH264 === currentIsH264 && (f.tbr || 0) > (current.tbr || 0))) {
+                        heightsMap.set(h, { ...f, isProgressive: false });
+                    }
                 }
             }
         }
@@ -385,12 +400,12 @@ export class DownloadsService {
             const f = heightsMap.get(h);
             const formatSelection = f.isProgressive
                 ? f.format_id
-                : (bestAudio ? `${f.format_id}+${bestAudio.format_id}` : f.format_id);
+                : (bestMp4Audio ? `${f.format_id}+${bestMp4Audio.format_id}` : f.format_id);
 
             // Calculate estimated combined filesize
             let combinedSize: number | null = f.filesize || f.filesize_approx || null;
-            if (!f.isProgressive && bestAudio) {
-                const audioSize = bestAudio.filesize || bestAudio.filesize_approx || null;
+            if (!f.isProgressive && bestMp4Audio) {
+                const audioSize = bestMp4Audio.filesize || bestMp4Audio.filesize_approx || null;
                 if (combinedSize && audioSize) {
                     combinedSize += audioSize;
                 }
@@ -416,7 +431,7 @@ export class DownloadsService {
                 height: h,
                 fps: f.fps || null,
                 vcodec: f.vcodec || null,
-                acodec: f.isProgressive ? f.acodec : (bestAudio?.acodec || null),
+                acodec: f.isProgressive ? f.acodec : (bestMp4Audio?.acodec || null),
                 tbr: f.tbr || null,
             });
         }
@@ -503,10 +518,30 @@ export class DownloadsService {
     }
 
     /**
+     * Checks if a video codec is already H.264 (avc1/h264), which can be stream-copied into MP4
+     */
+    isH264Codec(vcodec?: string | null): boolean {
+        return !!vcodec && /^(avc1|h264)/i.test(vcodec);
+    }
+
+    /**
+     * Checks if an audio codec is already AAC (mp4a/aac), which can be stream-copied into MP4
+     */
+    isAacCodec(acodec?: string | null): boolean {
+        return !!acodec && /^(mp4a|aac)/i.test(acodec);
+    }
+
+    /**
      * Builds the exact arguments for yt-dlp according to the requested format and type
      * Enforces --max-filesize to protect server bandwidth (max 500 MB)
      */
-    buildYtDlpArgs(url: string, formatSelection: string, type: FormatType, outputPath: string): string[] {
+    buildYtDlpArgs(
+        url: string,
+        formatSelection: string,
+        type: FormatType,
+        outputPath: string,
+        options?: BuildYtDlpOptions,
+    ): string[] {
         const baseArgs = [
             ...this.getCommonYtDlpArgs(),
             '--max-filesize', `${this.maxDownloadSizeMb}M`,
@@ -526,12 +561,20 @@ export class DownloadsService {
         }
 
         if (type === 'video_audio') {
+            // Stream-copy H.264/AAC when already compatible; otherwise transcode quickly with veryfast preset
+            const videoCodecArgs = this.isH264Codec(options?.vcodec)
+                ? '-c:v copy'
+                : '-c:v libx264 -preset veryfast';
+            const audioCodecArgs = this.isAacCodec(options?.acodec)
+                ? '-c:a copy'
+                : '-c:a aac';
+
             return [
                 ...baseArgs,
                 '-f', formatSelection,
                 '--merge-output-format', 'mp4',
-                // Compatibilidad universal (WhatsApp, iOS, Android, web): H.264 + AAC + faststart
-                '--postprocessor-args', 'Merger:-c:v libx264 -c:a aac -movflags +faststart',
+                // Compatibilidad universal (WhatsApp, iOS, Android, web) con faststart
+                '--postprocessor-args', `Merger:${videoCodecArgs} ${audioCodecArgs} -movflags +faststart`,
                 '-o', outputPath,
                 url,
             ];
@@ -547,6 +590,39 @@ export class DownloadsService {
     }
 
     /**
+     * Parses a single yt-dlp stdout line to update download progress or post-processing phase
+     */
+    parseYtDlpProgressLine(job: DownloadJob, line: string): void {
+        if (!line) return;
+
+        // Detect post-processing / FFmpeg merge / audio extraction phase
+        if (/^\[(Merger|ExtractAudio|VideoConvertor|Fixup[^\]]*)\]/.test(line.trim())) {
+            job.status = 'processing';
+            job.progressPercent = 100;
+            job.downloadSpeed = undefined;
+            job.eta = undefined;
+            return;
+        }
+
+        // Example yt-dlp line: [download]  45.2% of  120.50MiB at 12.30MiB/s ETA 00:05
+        const match = line.match(/\[download\]\s+([\d.]+)%\s+of\s+~?([^\s]+)\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)/);
+        if (match) {
+            const [, percent, total, speed, eta] = match;
+            job.status = 'downloading';
+            job.progressPercent = parseFloat(percent);
+            job.totalBytes = total;
+            job.downloadSpeed = speed;
+            job.eta = eta;
+        } else {
+            const simpleMatch = line.match(/\[download\]\s+([\d.]+)%/);
+            if (simpleMatch) {
+                job.status = 'downloading';
+                job.progressPercent = parseFloat(simpleMatch[1]);
+            }
+        }
+    }
+
+    /**
      * Starts background download with yt-dlp and associates client IP for quota management
      */
     startDownload(
@@ -555,9 +631,12 @@ export class DownloadsService {
         type: FormatType,
         title: string,
         clientIp?: string,
+        vcodec?: string,
+        acodec?: string,
+        userId?: string,
     ): { jobId: string } {
         const activeDownloads = Array.from(this.jobs.values()).filter(
-            (j) => j.status === 'downloading',
+            (j) => j.status === 'downloading' || j.status === 'processing',
         ).length;
 
         if (activeDownloads >= this.maxConcurrentDownloads) {
@@ -583,12 +662,13 @@ export class DownloadsService {
             filePath: tempPath,
             createdAt: Date.now(),
             clientIp,
+            userId,
         };
 
         this.jobs.set(jobId, job);
 
         const args = [
-            ...this.buildYtDlpArgs(url, formatSelection, type, tempPath),
+            ...this.buildYtDlpArgs(url, formatSelection, type, tempPath, { vcodec, acodec }),
             '--newline', // Output progress on new lines for easy parsing
         ];
         this.logger.log(`[Job ${jobId}] Starting yt-dlp with args: ${args.join(' ')}`);
@@ -597,24 +677,11 @@ export class DownloadsService {
 
         let stderr = '';
 
-        // Parse stdout for real progress percentage and speed
+        // Parse stdout for real progress percentage, speed, and post-processing phase
         ytProcess.stdout.on('data', (d) => {
-            const lines = d.toString().split('\n');
+            const lines = d.toString().split(/\r?\n/);
             for (const line of lines) {
-                // Example yt-dlp line: [download]  45.2% of  120.50MiB at 12.30MiB/s ETA 00:05
-                const match = line.match(/\[download\]\s+([\d.]+)%\s+of\s+~?([^\s]+)\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)/);
-                if (match) {
-                    const [, percent, total, speed, eta] = match;
-                    job.progressPercent = parseFloat(percent);
-                    job.totalBytes = total;
-                    job.downloadSpeed = speed;
-                    job.eta = eta;
-                } else {
-                    const simpleMatch = line.match(/\[download\]\s+([\d.]+)%/);
-                    if (simpleMatch) {
-                        job.progressPercent = parseFloat(simpleMatch[1]);
-                    }
-                }
+                this.parseYtDlpProgressLine(job, line);
             }
 
             // Real-time disk size check: abort if file exceeds maxDownloadSizeBytes
