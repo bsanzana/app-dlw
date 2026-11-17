@@ -7,7 +7,7 @@ import {
 } from "../../services/downloader.service";
 import { formatBytes, supabase } from "../../lib/supabase";
 import { FormatPicker } from "./FormatPicker";
-import { StatusDisplay } from "./StatusDisplay";
+import { StatusDisplay, type DownloadPhase } from "./StatusDisplay";
 
 export function Downloader() {
   const [url, setUrl] = useState("");
@@ -20,9 +20,12 @@ export function Downloader() {
   const [progressPercent, setProgressPercent] = useState<number | null>(null);
   const [downloadSpeed, setDownloadSpeed] = useState<string | null>(null);
   const [eta, setEta] = useState<string | null>(null);
+  const [phase, setPhase] = useState<DownloadPhase | null>(null);
+  const [processingSeconds, setProcessingSeconds] = useState(0);
   const [quota, setQuota] = useState<QuotaStatusResponse | null>(null);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const processingStartRef = useRef<number | null>(null);
 
   const refreshQuota = async () => {
     try {
@@ -107,7 +110,8 @@ export function Downloader() {
     loader: boolean,
     percent: number | null = null,
     speed: string | null = null,
-    timeEta: string | null = null
+    timeEta: string | null = null,
+    nextPhase: DownloadPhase | null = null
   ) => {
     setStatusMessage(message);
     setIsStatusActive(active);
@@ -115,6 +119,7 @@ export function Downloader() {
     setProgressPercent(percent);
     setDownloadSpeed(speed);
     setEta(timeEta);
+    setPhase(nextPhase);
   };
 
   const clearStatus = () => {
@@ -124,6 +129,9 @@ export function Downloader() {
     setProgressPercent(null);
     setDownloadSpeed(null);
     setEta(null);
+    setPhase(null);
+    setProcessingSeconds(0);
+    processingStartRef.current = null;
   };
 
   const handleFetchMetadata = async () => {
@@ -150,8 +158,10 @@ export function Downloader() {
     if (!metadata) return;
 
     clearPolling();
+    processingStartRef.current = null;
+    setProcessingSeconds(0);
     setIsProcessing(true);
-    setStatus(`Iniciando descarga en el servidor (${format.resolution} - ${format.ext.toUpperCase()})...`, true, true);
+    setStatus(`Iniciando descarga en el servidor (${format.resolution} - ${format.ext.toUpperCase()})...`, true, true, 5, null, null, "downloading");
 
     try {
       const { jobId } = await DownloaderService.startDownload(
@@ -163,7 +173,7 @@ export function Downloader() {
         format.acodec
       );
 
-      setStatus("Descargando y procesando archivo en el servidor...", true, true);
+      setStatus("Descargando y procesando archivo en el servidor...", true, true, 5, null, null, "downloading");
 
       // Polling ligero (KISS) para verificar cuándo está listo el archivo
       pollingRef.current = setInterval(async () => {
@@ -171,29 +181,41 @@ export function Downloader() {
           const job = await DownloaderService.checkStatus(jobId);
 
           if (job.status === "downloading") {
+            processingStartRef.current = null;
             const pct = job.progressPercent || 0;
-            const progressText = pct > 0 ? `Descargando: ${pct.toFixed(0)}%` : "Descargando y procesando...";
+            const overallPct = Math.max(5, Math.round(pct * 0.85));
+            const progressText = pct > 0 ? `Descargando: ${pct.toFixed(0)}%` : "Descargando archivo...";
             const totalText = job.totalBytes ? ` de ~${job.totalBytes}` : "";
             setStatus(
               `${progressText}${totalText}`,
               true,
               true,
-              pct,
+              overallPct,
               job.downloadSpeed,
-              job.eta
+              job.eta,
+              "downloading"
             );
           } else if (job.status === "processing") {
+            if (!processingStartRef.current) {
+              processingStartRef.current = Date.now();
+            }
+            const elapsed = Math.floor((Date.now() - processingStartRef.current) / 1000);
+            setProcessingSeconds(elapsed);
+            // Avance gradual entre 86% y 98% durante el empaquetado/conversión en servidor
+            const processingPct = Math.min(98, 86 + Math.floor(elapsed / 2));
             setStatus(
               "Procesando y empaquetando archivo en el servidor...",
               true,
               true,
-              100,
+              processingPct,
               null,
-              null
+              null,
+              "processing"
             );
           } else if (job.status === "completed") {
             clearPolling();
-            setStatus("¡Descarga lista! Transfiriendo archivo al navegador...", true, false, 100);
+            processingStartRef.current = null;
+            setStatus("¡Descarga lista! Transfiriendo archivo al navegador...", true, false, 100, null, null, "completed");
 
             // Disparar descarga directa del archivo generado
             const downloadUrl = DownloaderService.getDownloadUrl(jobId);
@@ -319,6 +341,8 @@ export function Downloader() {
             progressPercent={progressPercent}
             downloadSpeed={downloadSpeed}
             eta={eta}
+            phase={phase}
+            processingSeconds={processingSeconds}
           />
         )}
 

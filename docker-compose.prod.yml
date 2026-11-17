@@ -32,7 +32,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
           memory: 1024M
     # No exponemos puertos en el host en producción; Nginx se conecta vía la red externa
     networks:
