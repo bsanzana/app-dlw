@@ -52,7 +52,7 @@ export function AuthBar() {
 
   return (
     <>
-      <div className="flex items-center gap-3 font-mono text-xs">
+      <div className="flex items-center gap-2 sm:gap-3 font-mono text-[11px] sm:text-xs">
         {user ? (
           <>
             {quota?.authenticated &&
@@ -77,7 +77,7 @@ export function AuthBar() {
             {isAdmin && (
               <a
                 href="/admin"
-                className="px-3 py-1.5 rounded-lg bg-primary/15 border border-primary text-primary font-bold uppercase tracking-wider hover:bg-primary hover:text-background-dark transition-colors"
+                className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-primary/15 border border-primary text-primary font-bold uppercase tracking-wider hover:bg-primary hover:text-background-dark transition-colors"
               >
                 Admin
               </a>
@@ -86,7 +86,7 @@ export function AuthBar() {
             <button
               type="button"
               onClick={() => signOut()}
-              className="px-3 py-1.5 rounded-lg border border-border-color text-slate-300 hover:border-red-400 hover:text-red-300 transition-colors cursor-pointer uppercase"
+              className="px-2.5 sm:px-3 py-1.5 rounded-lg border border-border-color text-slate-300 hover:border-red-400 hover:text-red-300 transition-colors cursor-pointer uppercase"
             >
               Salir
             </button>
@@ -102,7 +102,7 @@ export function AuthBar() {
                 setModalMode("login");
                 setModalOpen(true);
               }}
-              className="px-3.5 py-2 rounded-lg bg-primary text-background-dark font-bold uppercase tracking-wider hover:bg-white transition-colors shadow-[0_0_12px_rgba(89,242,13,0.4)] cursor-pointer"
+              className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-primary text-background-dark font-bold uppercase tracking-wider hover:bg-white transition-colors shadow-[0_0_12px_rgba(89,242,13,0.4)] cursor-pointer"
             >
               Iniciar Sesión
             </button>

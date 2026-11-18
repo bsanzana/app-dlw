@@ -103,7 +103,7 @@ export function AuthModal({
       aria-modal="true"
       aria-label="Autenticación"
     >
-      <div className="relative w-full max-w-md rounded-2xl bg-surface border border-primary/40 shadow-[0_0_35px_rgba(89,242,13,0.2)] p-6 text-slate-100 font-mono">
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-surface border border-primary/40 shadow-[0_0_35px_rgba(89,242,13,0.2)] p-4 sm:p-6 text-slate-100 font-mono">
         <button
           type="button"
           onClick={onClose}

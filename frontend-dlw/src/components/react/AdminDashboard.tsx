@@ -278,28 +278,28 @@ export function AdminDashboard() {
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-surface border border-border-color">
-          <div className="text-[11px] text-slate-400 uppercase">Usuarios</div>
-          <div className="text-2xl font-black text-primary mt-1">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="p-3.5 sm:p-4 rounded-xl bg-surface border border-border-color">
+          <div className="text-[10px] sm:text-[11px] text-slate-400 uppercase">Usuarios</div>
+          <div className="text-xl sm:text-2xl font-black text-primary mt-1">
             {data.summary.totalUsers}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-surface border border-border-color">
-          <div className="text-[11px] text-slate-400 uppercase">Solicitudes Totales</div>
-          <div className="text-2xl font-black text-slate-100 mt-1">
+        <div className="p-3.5 sm:p-4 rounded-xl bg-surface border border-border-color">
+          <div className="text-[10px] sm:text-[11px] text-slate-400 uppercase">Solicitudes Totales</div>
+          <div className="text-xl sm:text-2xl font-black text-slate-100 mt-1">
             {data.summary.totalRequests}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-surface border border-border-color">
-          <div className="text-[11px] text-slate-400 uppercase">Descargas Totales</div>
-          <div className="text-2xl font-black text-slate-100 mt-1">
+        <div className="p-3.5 sm:p-4 rounded-xl bg-surface border border-border-color">
+          <div className="text-[10px] sm:text-[11px] text-slate-400 uppercase">Descargas Totales</div>
+          <div className="text-xl sm:text-2xl font-black text-slate-100 mt-1">
             {data.summary.totalDownloads}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-surface border border-border-color">
-          <div className="text-[11px] text-slate-400 uppercase">Ancho de Banda Total</div>
-          <div className="text-2xl font-black text-cyan-400 mt-1">
+        <div className="p-3.5 sm:p-4 rounded-xl bg-surface border border-border-color">
+          <div className="text-[10px] sm:text-[11px] text-slate-400 uppercase">Ancho de Banda Total</div>
+          <div className="text-xl sm:text-2xl font-black text-cyan-400 mt-1">
             {formatBytes(data.summary.totalBytesTransferred)}
           </div>
         </div>
@@ -353,7 +353,129 @@ export function AdminDashboard() {
           />
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Vista móvil en tarjetas */}
+        <div className="md:hidden divide-y divide-border-color/60">
+          {filteredUsers.length === 0 ? (
+            <div className="py-8 text-center text-slate-500 text-xs">
+              No se encontraron usuarios.
+            </div>
+          ) : (
+            filteredUsers.map((row) => (
+              <div key={row.id} className="p-4 flex flex-col gap-3 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-100 break-all">
+                      {row.email}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      {row.lastSignInAt
+                        ? new Date(row.lastSignInAt).toLocaleString("es-CL")
+                        : "Sin login"}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 uppercase text-[10px]">
+                      {row.provider}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded uppercase text-[10px] font-bold ${
+                        row.role === "admin"
+                          ? "bg-primary/20 text-primary border border-primary/40"
+                          : "bg-slate-800 text-slate-400"
+                      }`}
+                    >
+                      {row.role}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-background-dark/60 border border-border-color/50 text-center">
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase">Solicitudes</div>
+                    <div className="font-bold text-slate-200">{row.requestsCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase">Descargas</div>
+                    <div className="font-bold text-slate-200">{row.downloadsCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase">Consumo</div>
+                    <div className="font-bold text-cyan-300">
+                      {formatBytes(row.bytesTransferred)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {editingUserId === row.id ? (
+                    <div className="flex items-center gap-1.5 w-full">
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.1"
+                        value={editingUserGb}
+                        onChange={(e) => setEditingUserGb(e.target.value)}
+                        className="w-20 h-8 px-2 rounded bg-background-dark border border-primary text-xs text-slate-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveUserBandwidth(row.id, false)}
+                        className="px-2.5 py-1.5 rounded bg-primary text-background-dark font-bold text-[10px] cursor-pointer"
+                      >
+                        OK
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveUserBandwidth(row.id, true)}
+                        className="px-2.5 py-1.5 rounded border border-border-color text-slate-300 text-[10px] cursor-pointer"
+                      >
+                        Default
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingUserId(null)}
+                        className="px-2 py-1.5 text-slate-400 text-[10px] cursor-pointer ml-auto"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingUserId(row.id);
+                          setEditingUserGb(
+                            (row.effectiveBandwidthLimitBytes / GB_BYTES)
+                              .toFixed(2)
+                              .replace(/\.00$/, "")
+                          );
+                        }}
+                        className="px-2.5 py-1.5 rounded border border-border-color hover:border-primary text-slate-300 hover:text-primary text-[11px] cursor-pointer"
+                      >
+                        Límite: {formatBytes(row.effectiveBandwidthLimitBytes)}
+                        {row.customBandwidthLimitBytes ? " *" : ""}
+                      </button>
+
+                      {row.id !== user.id && (
+                        <button
+                          type="button"
+                          onClick={() => void handleToggleRole(row)}
+                          className="px-2.5 py-1.5 rounded border border-border-color hover:border-primary text-slate-300 hover:text-primary text-[11px] cursor-pointer"
+                        >
+                          {row.role === "admin" ? "Quitar Admin" : "Hacer Admin"}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Vista tablet/desktop en tabla */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-border-color bg-background-dark/60 text-slate-400 uppercase">

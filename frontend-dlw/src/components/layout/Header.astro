@@ -3,19 +3,19 @@ import { AuthBar } from "../react/AuthBar";
 ---
 
 <header
-  class="flex items-center justify-between whitespace-nowrap border-b border-solid border-border-color px-4 md:px-10 py-3 mb-4"
+  class="flex items-center justify-between gap-2 whitespace-nowrap border-b border-solid border-border-color px-3 sm:px-6 md:px-10 py-2.5 sm:py-3 mb-2 sm:mb-4"
 >
-  <a href="/" class="flex items-center gap-4 text-primary neon-text">
-    <div class="size-6 flex items-center justify-center">
-      <span class="material-symbols-outlined">terminal</span>
+  <a href="/" class="flex items-center gap-2 sm:gap-4 text-primary neon-text min-w-0">
+    <div class="size-5 sm:size-6 flex items-center justify-center shrink-0">
+      <span class="material-symbols-outlined text-[20px] sm:text-[24px]">terminal</span>
     </div>
     <h2
-      class="text-primary text-xl font-bold leading-tight tracking-[-0.015em] uppercase"
+      class="text-primary text-base sm:text-xl font-bold leading-tight tracking-[-0.015em] uppercase truncate"
     >
       DESCARGA_LA_WEA
     </h2>
   </a>
-  <div class="flex flex-1 justify-end gap-4 items-center">
+  <div class="flex flex-1 justify-end gap-2 sm:gap-4 items-center shrink-0">
     <AuthBar client:load />
   </div>
 </header>

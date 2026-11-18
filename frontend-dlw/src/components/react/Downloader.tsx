@@ -265,7 +265,7 @@ export function Downloader() {
         <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-cyan-500/50 rounded-xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
 
         {/* Input box */}
-        <div className="relative flex items-center w-full bg-surface border border-primary/40 rounded-xl min-h-[58px] sm:min-h-[66px] shadow-[0_0_20px_rgba(89,242,13,0.1)] focus-within:shadow-[0_0_30px_rgba(89,242,13,0.25)] focus-within:border-primary transition-all duration-300 px-3 sm:px-4 py-2">
+        <div className="relative flex items-center w-full bg-surface border border-primary/40 rounded-xl min-h-[52px] sm:min-h-[66px] shadow-[0_0_20px_rgba(89,242,13,0.1)] focus-within:shadow-[0_0_30px_rgba(89,242,13,0.25)] focus-within:border-primary transition-all duration-300 px-3 sm:px-4 py-2">
           <div className="flex items-center justify-center pl-1 pr-2 text-primary shrink-0">
             <span className="text-lg sm:text-xl font-mono select-none">&gt;_</span>
           </div>
@@ -286,8 +286,9 @@ export function Downloader() {
             <button
               type="button"
               onClick={() => setUrl("")}
-              className="text-slate-500 hover:text-slate-300 p-1 shrink-0 transition-colors"
+              className="text-slate-500 hover:text-slate-300 p-2 shrink-0 transition-colors cursor-pointer"
               title="Limpiar"
+              aria-label="Limpiar enlace"
             >
               <span className="material-symbols-outlined text-[18px]">close</span>
             </button>
@@ -309,13 +310,13 @@ export function Downloader() {
         </button>
       </div>
 
-      <div className="flex flex-wrap justify-between items-center gap-2 mt-2.5 px-2 w-full">
-        <p className="text-[11px] sm:text-xs text-slate-500 font-mono flex items-center gap-1.5 truncate">
+      <div className="flex flex-wrap justify-between items-center gap-2 mt-2.5 px-1 sm:px-2 w-full">
+        <p className="text-[11px] sm:text-xs text-slate-500 font-mono flex items-center gap-1.5 min-w-0">
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0"></span>{" "}
           <span className="truncate">Soporta: YouTube, TikTok, Instagram.</span>
         </p>
-        <p className="text-[11px] sm:text-xs text-slate-400 font-mono flex items-center gap-1.5 bg-surface/80 px-2.5 py-1 rounded border border-border-color/60">
-          <span className="material-symbols-outlined text-[14px] text-primary">data_usage</span>
+        <p className="text-[11px] sm:text-xs text-slate-400 font-mono flex items-center gap-1.5 bg-surface/80 px-2.5 py-1 rounded border border-border-color/60 max-w-full">
+          <span className="material-symbols-outlined text-[14px] text-primary shrink-0">data_usage</span>
           {quota?.authenticated ? (
             <span>
               Cuenta verificada: {formatBytes(quota.bytesTransferred ?? 0)} /{" "}

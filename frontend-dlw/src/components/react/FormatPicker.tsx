@@ -51,13 +51,13 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 rounded-xl border border-border-color bg-surface shadow-md">
-      <div className="flex flex-col md:flex-row gap-6">
-        <div className="flex flex-col items-center gap-3 shrink-0">
+    <div className="flex flex-col gap-5 sm:gap-6 p-4 sm:p-6 rounded-xl border border-border-color bg-surface shadow-md">
+      <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
+        <div className="flex flex-col items-center gap-2.5 sm:gap-3 shrink-0">
           <img
             src={metadata.thumbnail}
             alt={metadata.title}
-            className="w-[180px] md:w-[220px] aspect-video object-cover rounded shadow border border-border-color/50"
+            className="w-full max-w-[260px] md:w-[220px] aspect-video object-cover rounded shadow border border-border-color/50"
           />
           <span className="text-xs text-slate-400 font-mono bg-background-dark px-2.5 py-1 rounded border border-border-color/40">
             {formatDuration(metadata.duration)}
@@ -66,7 +66,7 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
 
         <div className="flex flex-col gap-3 flex-1 min-w-0">
           <div>
-            <h3 className="text-slate-100 font-bold text-lg leading-snug">
+            <h3 className="text-slate-100 font-bold text-base sm:text-lg leading-snug break-words">
               {metadata.title}
             </h3>
             <p className="text-primary text-xs font-mono mt-1 flex items-center gap-1.5">
@@ -80,7 +80,7 @@ export function FormatPicker({ metadata, onDownload, disabled = false }: FormatP
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+              className={`px-2.5 sm:px-3 py-1.5 sm:py-1 text-[11px] sm:text-xs font-mono rounded transition-colors cursor-pointer ${
                 filter === "all"
                   ? "bg-primary text-background-dark font-bold shadow-[0_0_8px_rgba(89,242,13,0.4)]"
                   : "bg-background-dark text-slate-400 hover:text-slate-200 border border-border-color"
