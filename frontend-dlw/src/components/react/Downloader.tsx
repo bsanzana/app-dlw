@@ -52,8 +52,8 @@ export function Downloader() {
   // Typewriter placeholder logic
   const [currentPlaceholder, setCurrentPlaceholder] = useState("");
   const phrases = [
-    "Ingresa la URL del video aquí...",
-    "Pega el enlace de YouTube...",
+    "Ingresa la URL del video o imagen aquí...",
+    "Pega el enlace de YouTube, Facebook o Instagram...",
     "Introduce la URL de destino...",
     "https://www.youtube.com/watch?v=...",
   ];
@@ -170,7 +170,13 @@ export function Downloader() {
         format.type,
         metadata.title,
         format.vcodec,
-        format.acodec
+        format.acodec,
+        {
+          engine: format.engine,
+          itemIndex: format.itemIndex,
+          directUrl: format.directUrl,
+          ext: format.ext,
+        }
       );
 
       setStatus("Descargando y procesando archivo en el servidor...", true, true, 5, null, null, "downloading");
@@ -313,7 +319,7 @@ export function Downloader() {
       <div className="flex flex-wrap justify-between items-center gap-2 mt-2.5 px-1 sm:px-2 w-full">
         <p className="text-[11px] sm:text-xs text-slate-500 font-mono flex items-center gap-1.5 min-w-0">
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0"></span>{" "}
-          <span className="truncate">Soporta: YouTube, TikTok, Instagram.</span>
+          <span className="truncate">Soporta: YouTube, TikTok, Instagram, Facebook, X y más.</span>
         </p>
         <p className="text-[11px] sm:text-xs text-slate-400 font-mono flex items-center gap-1.5 bg-surface/80 px-2.5 py-1 rounded border border-border-color/60 max-w-full">
           <span className="material-symbols-outlined text-[14px] text-primary shrink-0">data_usage</span>

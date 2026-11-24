@@ -3,10 +3,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { DownloadsService } from './downloads.service';
+import { CobaltProvider } from './providers/cobalt.provider';
+import { GalleryDlProvider } from './providers/gallery-dl.provider';
 import { HttpException, HttpStatus } from '@nestjs/common';
 
 describe('DownloadsService', () => {
     let service: DownloadsService;
+    let cobaltProvider: CobaltProvider;
+    let galleryDlProvider: GalleryDlProvider;
 
     // Fixture representing typical yt-dlp --dump-json output
     const mockRawYtDlp = {
@@ -35,10 +39,12 @@ describe('DownloadsService', () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [DownloadsService],
+            providers: [DownloadsService, CobaltProvider, GalleryDlProvider],
         }).compile();
 
         service = module.get<DownloadsService>(DownloadsService);
+        cobaltProvider = module.get<CobaltProvider>(CobaltProvider);
+        galleryDlProvider = module.get<GalleryDlProvider>(GalleryDlProvider);
         // Clean memory ipQuotas
         (service as any).ipQuotas.clear();
     });
@@ -302,6 +308,86 @@ describe('DownloadsService', () => {
             expect(() => {
                 service.startDownload('https://youtube.com/watch?v=123', '18', 'video_audio', 'Test');
             }).toThrow(HttpException);
+        });
+    });
+
+    describe('Multi-engine orchestration (yt-dlp -> Cobalt / gallery-dl)', () => {
+        afterEach(() => {
+            jest.restoreAllMocks();
+        });
+
+        it('should fallback to Cobalt when yt-dlp fails with a video extraction error', async () => {
+            jest.spyOn(cobaltProvider, 'isEnabled').mockReturnValue(true);
+            jest.spyOn(galleryDlProvider, 'isEnabled').mockReturnValue(true);
+            jest.spyOn(service, 'getYtDlpMetadata').mockRejectedValue(new Error('Sign in to confirm you are not a bot'));
+            const cobaltSpy = jest.spyOn(cobaltProvider, 'resolveInfo').mockResolvedValue({
+                id: 'cb_1',
+                title: 'Resuelto con Cobalt',
+                thumbnail: '',
+                duration: 0,
+                uploader: 'youtube.com',
+                engine: 'cobalt',
+                mediaType: 'video',
+                formats: [],
+            });
+
+            const result = await service.getMetadata('https://www.youtube.com/watch?v=abc');
+            expect(cobaltSpy).toHaveBeenCalledTimes(1);
+            expect(result.engine).toBe('cobalt');
+        });
+
+        it('should prefer gallery-dl first when yt-dlp reports no video formats found', async () => {
+            jest.spyOn(cobaltProvider, 'isEnabled').mockReturnValue(true);
+            jest.spyOn(galleryDlProvider, 'isEnabled').mockReturnValue(true);
+            jest.spyOn(service, 'getYtDlpMetadata').mockRejectedValue(new Error('ERROR: No video formats found!'));
+            const gdlSpy = jest.spyOn(galleryDlProvider, 'resolveInfo').mockResolvedValue({
+                id: 'gdl_1',
+                title: 'Post de Imagen',
+                thumbnail: 'https://img.test/1.jpg',
+                duration: 0,
+                uploader: 'instagram',
+                engine: 'gallery_dl',
+                mediaType: 'image',
+                formats: [],
+            });
+
+            const result = await service.getMetadata('https://www.instagram.com/p/photo123/');
+            expect(gdlSpy).toHaveBeenCalledTimes(1);
+            expect(result.engine).toBe('gallery_dl');
+        });
+
+        it('should use gallery-dl directly on Facebook photo URLs', async () => {
+            jest.spyOn(galleryDlProvider, 'isEnabled').mockReturnValue(true);
+            const ytSpy = jest.spyOn(service, 'getYtDlpMetadata');
+            const gdlSpy = jest.spyOn(galleryDlProvider, 'resolveInfo').mockResolvedValue({
+                id: 'gdl_fb',
+                title: 'Foto Facebook',
+                thumbnail: 'https://fbcdn.net/photo.jpg',
+                duration: 0,
+                uploader: 'Pagina FB',
+                engine: 'gallery_dl',
+                mediaType: 'image',
+                formats: [],
+            });
+
+            const result = await service.getMetadata('https://www.facebook.com/photo/?fbid=12345');
+            expect(gdlSpy).toHaveBeenCalledTimes(1);
+            expect(ytSpy).not.toHaveBeenCalled();
+            expect(result.engine).toBe('gallery_dl');
+        });
+
+        it('should NOT fallback on non-retryable business errors (e.g. live streams)', async () => {
+            jest.spyOn(cobaltProvider, 'isEnabled').mockReturnValue(true);
+            jest.spyOn(galleryDlProvider, 'isEnabled').mockReturnValue(true);
+            jest.spyOn(service, 'getYtDlpMetadata').mockRejectedValue(
+                new Error('No se permite la descarga de transmisiones en vivo (live streams).'),
+            );
+            const cobaltSpy = jest.spyOn(cobaltProvider, 'resolveInfo');
+
+            await expect(service.getMetadata('https://www.youtube.com/watch?v=live')).rejects.toThrow(
+                /transmisiones en vivo/,
+            );
+            expect(cobaltSpy).not.toHaveBeenCalled();
         });
     });
 });

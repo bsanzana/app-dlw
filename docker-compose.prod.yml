@@ -7,6 +7,22 @@ services:
     networks:
       - dlw_net
 
+  # Motor de respaldo Cobalt (última versión estable) solo en red interna
+  cobalt:
+    image: ghcr.io/imputnet/cobalt:latest
+    container_name: dlw_cobalt
+    init: true
+    restart: always
+    environment:
+      - API_URL=http://dlw_cobalt:9000/
+      - API_PORT=9000
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - dlw_net
+
   app_backend:
     build:
       context: ./backend-dlw
@@ -17,6 +33,9 @@ services:
       - PORT=3001
       - NODE_ENV=production
       - POT_PROVIDER_URL=http://dlw_pot_provider:4416
+      - COBALT_API_URL=${COBALT_API_URL:-http://dlw_cobalt:9000}
+      - ENABLE_COBALT=${ENABLE_COBALT:-true}
+      - ENABLE_GALLERY_DL=${ENABLE_GALLERY_DL:-true}
       - COOKIES_PATH=/app/cookies/cookies.txt
       - PROXY_URL=${PROXY_URL:-}
       - MAX_DOWNLOADS_PER_IP_DAY=${MAX_DOWNLOADS_PER_IP_DAY:-2}
@@ -29,6 +48,7 @@ services:
       - ./cookies:/app/cookies:ro
     depends_on:
       - pot_provider
+      - cobalt
     deploy:
       resources:
         limits:

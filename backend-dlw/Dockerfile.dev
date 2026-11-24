@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL https://deno.land/install.sh | sh && \
     mv /root/.deno/bin/deno /usr/local/bin/deno
 
-# Instalar yt-dlp y plugin bgutil-ytdlp-pot-provider
-RUN pip3 install --no-cache-dir --break-system-packages yt-dlp bgutil-ytdlp-pot-provider
+# Instalar yt-dlp, plugin bgutil-ytdlp-pot-provider y gallery-dl
+RUN pip3 install --no-cache-dir --break-system-packages yt-dlp bgutil-ytdlp-pot-provider gallery-dl
 
 WORKDIR /app
 

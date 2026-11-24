@@ -215,4 +215,43 @@ describe('DownloadsController', () => {
             expect(result.progressPercent).toBe(100);
         });
     });
+
+    describe('startDownload with extra engine options', () => {
+        it('should forward engine, itemIndex, directUrl and ext when provided', async () => {
+            mockDownloadsService.startDownload.mockReturnValue({ jobId: 'job-gdl-1' });
+            const req: any = { headers: { 'x-real-ip': '186.20.30.40' } };
+
+            const result = await controller.startDownload(
+                'https://www.facebook.com/photo/?fbid=123',
+                'gallery:all:zip',
+                'image',
+                'Album FB',
+                req,
+                undefined,
+                undefined,
+                'gallery_dl',
+                1,
+                'https://scontent.fbcdn.net/1.jpg',
+                'zip',
+            );
+
+            expect(result).toEqual({ jobId: 'job-gdl-1' });
+            expect(mockDownloadsService.startDownload).toHaveBeenCalledWith(
+                'https://www.facebook.com/photo/?fbid=123',
+                'gallery:all:zip',
+                'image',
+                'Album FB',
+                '186.20.30.40',
+                undefined,
+                undefined,
+                undefined,
+                {
+                    engine: 'gallery_dl',
+                    itemIndex: 1,
+                    directUrl: 'https://scontent.fbcdn.net/1.jpg',
+                    ext: 'zip',
+                },
+            );
+        });
+    });
 });

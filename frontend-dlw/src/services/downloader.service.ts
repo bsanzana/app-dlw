@@ -7,7 +7,9 @@ export const API_URL =
     ? "http://localhost:3001/api"
     : "/api";
 
-export type FormatType = "video_audio" | "video_only" | "audio_only";
+export type DownloadEngine = "ytdlp" | "cobalt" | "gallery_dl";
+
+export type FormatType = "video_audio" | "video_only" | "audio_only" | "image";
 
 export interface VideoFormatOption {
   id: string;
@@ -25,6 +27,10 @@ export interface VideoFormatOption {
   acodec: string | null;
   abr?: number | null;
   tbr?: number | null;
+  engine?: DownloadEngine;
+  previewUrl?: string | null;
+  itemIndex?: number | null;
+  directUrl?: string | null;
 }
 
 export interface VideoMetadata {
@@ -34,6 +40,15 @@ export interface VideoMetadata {
   duration: number;
   uploader: string;
   formats: VideoFormatOption[];
+  engine?: DownloadEngine;
+  mediaType?: "video" | "audio" | "image" | "mixed";
+}
+
+export interface StartDownloadExtra {
+  engine?: DownloadEngine;
+  itemIndex?: number | null;
+  directUrl?: string | null;
+  ext?: string;
 }
 
 export interface StartJobResponse {
@@ -106,12 +121,24 @@ export class DownloaderService {
     type: FormatType,
     title: string,
     vcodec?: string | null,
-    acodec?: string | null
+    acodec?: string | null,
+    extra?: StartDownloadExtra
   ): Promise<StartJobResponse> {
     const res = await fetch(`${API_URL}/downloads/start`, {
       method: "POST",
       headers: await buildAuthHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ url, formatSelection, type, title, vcodec, acodec }),
+      body: JSON.stringify({
+        url,
+        formatSelection,
+        type,
+        title,
+        vcodec,
+        acodec,
+        ...(extra?.engine ? { engine: extra.engine } : {}),
+        ...(typeof extra?.itemIndex === "number" ? { itemIndex: extra.itemIndex } : {}),
+        ...(extra?.directUrl ? { directUrl: extra.directUrl } : {}),
+        ...(extra?.ext ? { ext: extra.ext } : {}),
+      }),
     });
 
     if (!res.ok) {

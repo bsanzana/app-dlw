@@ -1,62 +1,34 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus, Optional } from '@nestjs/common';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
+import { CobaltProvider } from './providers/cobalt.provider';
+import { GalleryDlProvider } from './providers/gallery-dl.provider';
+import type {
+    BuildYtDlpOptions,
+    DownloadEngine,
+    DownloadJob,
+    FormatType,
+    VideoFormatOption,
+    VideoMetadata,
+} from './downloads.types';
 
-export type FormatType = 'video_audio' | 'video_only' | 'audio_only';
+export type {
+    BuildYtDlpOptions,
+    DownloadEngine,
+    DownloadJob,
+    FormatType,
+    VideoFormatOption,
+    VideoMetadata,
+} from './downloads.types';
 
-export interface VideoFormatOption {
-    id: string; // unique key for selection
-    type: FormatType;
-    formatSelection: string; // string passed to yt-dlp -f
-    resolution: string;
-    ext: string;
-    note: string;
-    hasAudio: boolean;
-    hasVideo: boolean;
-    filesize: number | null;
-    height: number | null;
-    fps: number | null;
-    vcodec: string | null;
-    acodec: string | null;
-    abr?: number | null;
-    tbr?: number | null;
-}
-
-export interface VideoMetadata {
-    id: string;
-    title: string;
-    thumbnail: string;
-    duration: number;
-    uploader: string;
-    formats: VideoFormatOption[];
-}
-
-export interface BuildYtDlpOptions {
-    vcodec?: string | null;
-    acodec?: string | null;
-}
-
-export interface DownloadJob {
-    id: string;
-    url: string;
-    formatSelection: string;
-    type: FormatType;
-    title: string;
-    ext: string;
-    status: 'downloading' | 'processing' | 'completed' | 'failed';
-    progressPercent?: number;
-    downloadSpeed?: string;
-    eta?: string;
-    downloadedBytes?: string;
-    totalBytes?: string;
-    filePath?: string;
-    error?: string;
-    createdAt: number;
-    clientIp?: string;
-    userId?: string;
+export interface StartDownloadExtraOptions {
+    engine?: DownloadEngine;
+    itemIndex?: number;
+    directUrl?: string;
+    ext?: string;
 }
 
 @Injectable()
@@ -83,7 +55,10 @@ export class DownloadsService {
     private readonly quotaFilePath = path.join(os.tmpdir(), 'dlw_ip_quotas.json');
     private readonly ipQuotas = new Map<string, number[]>(); // ip -> epoch timestamps
 
-    constructor() {
+    constructor(
+        @Optional() private readonly cobaltProvider?: CobaltProvider,
+        @Optional() private readonly galleryDlProvider?: GalleryDlProvider,
+    ) {
         this.loadQuotasFromDisk();
         // Run cleanup of old jobs, temp files, and expired IP quotas every 10 minutes
         this.cleanupTimer = setInterval(() => this.cleanupOldJobs(), 10 * 60 * 1000);
@@ -255,10 +230,115 @@ export class DownloadsService {
         return args;
     }
 
+    private validatePublicUrl(rawUrl: string): void {
+        let parsed: URL;
+        try {
+            parsed = new URL(rawUrl);
+        } catch {
+            throw new Error('La URL proporcionada no es válida.');
+        }
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            throw new Error('Solo se permiten enlaces HTTP o HTTPS.');
+        }
+    }
+
+    private isNonRetryableBusinessError(err: unknown): boolean {
+        const msg = err instanceof Error ? err.message.toLowerCase() : '';
+        return (
+            msg.includes('transmisiones en vivo') ||
+            msg.includes('duración máxima permitida') ||
+            msg.includes('límite máximo de descarga permitido') ||
+            msg.includes('url proporcionada no es válida') ||
+            msg.includes('solo se permiten enlaces http')
+        );
+    }
+
+    private isNoVideoExtractionError(err: unknown): boolean {
+        const msg = err instanceof Error ? err.message.toLowerCase() : '';
+        return (
+            msg.includes('no video formats') ||
+            msg.includes('there is no video') ||
+            msg.includes('unsupported url') ||
+            msg.includes('unable to extract') ||
+            msg.includes('no media')
+        );
+    }
+
+    /**
+     * Orchestrates metadata extraction across yt-dlp, Cobalt (fallback), and gallery-dl (images/social galleries).
+     */
+    async getMetadata(url: string): Promise<VideoMetadata> {
+        this.validatePublicUrl(url);
+
+        const cobaltEnabled = Boolean(this.cobaltProvider?.isEnabled());
+        const galleryEnabled = Boolean(this.galleryDlProvider?.isEnabled());
+
+        // Fast-path for URLs known to be photo/gallery posts (e.g. Facebook /photo, Pinterest, Imgur)
+        if (galleryEnabled && this.galleryDlProvider!.isGalleryPreferredUrl(url)) {
+            try {
+                return await this.galleryDlProvider!.resolveInfo(url);
+            } catch (galleryErr: any) {
+                this.logger.warn(`gallery-dl preferred path failed, falling back: ${galleryErr?.message}`);
+                try {
+                    return await this.getYtDlpMetadata(url);
+                } catch (ytErr: any) {
+                    if (this.isNonRetryableBusinessError(ytErr)) throw ytErr;
+                    if (cobaltEnabled) {
+                        try {
+                            return await this.cobaltProvider!.resolveInfo(url);
+                        } catch { }
+                    }
+                    throw galleryErr;
+                }
+            }
+        }
+
+        // Standard path: yt-dlp first, then smart fallback to gallery-dl / Cobalt
+        try {
+            return await this.getYtDlpMetadata(url);
+        } catch (ytErr: any) {
+            if (this.isNonRetryableBusinessError(ytErr)) {
+                throw ytErr;
+            }
+
+            this.logger.warn(`yt-dlp failed for ${url}: ${ytErr?.message}`);
+
+            const preferGalleryFirst = this.isNoVideoExtractionError(ytErr);
+            const fallbackOrder: Array<'cobalt' | 'gallery_dl'> = preferGalleryFirst
+                ? ['gallery_dl', 'cobalt']
+                : ['cobalt', 'gallery_dl'];
+
+            const errors: string[] = [ytErr?.message || 'yt-dlp error'];
+
+            for (const engine of fallbackOrder) {
+                if (engine === 'cobalt' && cobaltEnabled) {
+                    try {
+                        this.logger.log(`Trying Cobalt fallback for ${url}`);
+                        return await this.cobaltProvider!.resolveInfo(url);
+                    } catch (cbErr: any) {
+                        this.logger.warn(`Cobalt fallback failed: ${cbErr?.message}`);
+                        errors.push(cbErr?.message || 'Cobalt error');
+                    }
+                }
+                if (engine === 'gallery_dl' && galleryEnabled) {
+                    try {
+                        this.logger.log(`Trying gallery-dl fallback for ${url}`);
+                        return await this.galleryDlProvider!.resolveInfo(url);
+                    } catch (gdlErr: any) {
+                        this.logger.warn(`gallery-dl fallback failed: ${gdlErr?.message}`);
+                        errors.push(gdlErr?.message || 'gallery-dl error');
+                    }
+                }
+            }
+
+            throw new Error(ytErr?.message || errors.join(' | '));
+        }
+    }
+
     /**
      * Executes yt-dlp to extract raw video metadata and format choices
      */
-    async getMetadata(url: string): Promise<VideoMetadata> {
+    async getYtDlpMetadata(url: string): Promise<VideoMetadata> {
         return new Promise((resolve, reject) => {
             const args = [
                 '--dump-json',
@@ -513,7 +593,9 @@ export class DownloadsService {
             thumbnail: raw.thumbnail || '',
             duration: raw.duration || 0,
             uploader: raw.uploader || raw.channel || '',
-            formats: resultFormats,
+            formats: resultFormats.map((f) => ({ ...f, engine: 'ytdlp' as const })),
+            engine: 'ytdlp',
+            mediaType: 'video',
         };
     }
 
@@ -622,8 +704,33 @@ export class DownloadsService {
         }
     }
 
+    private resolveInitialExt(formatSelection: string, type: FormatType, requestedExt?: string): string {
+        if (requestedExt && /^[a-z0-9]{2,5}$/i.test(requestedExt)) {
+            return requestedExt.toLowerCase();
+        }
+        if (formatSelection.endsWith(':zip')) return 'zip';
+        if (
+            (type === 'audio_only' && formatSelection === 'bestaudio/best') ||
+            formatSelection.startsWith('cobalt:audio')
+        ) {
+            return 'mp3';
+        }
+        if (type === 'image') return 'jpg';
+        return 'mp4';
+    }
+
+    private failJob(job: DownloadJob, errorMessage: string): void {
+        if (job.status === 'failed') return;
+        job.status = 'failed';
+        job.error = errorMessage;
+        this.cleanupFile(job.filePath, job.tempDir);
+        if (job.clientIp) {
+            this.refundIpQuota(job.clientIp);
+        }
+    }
+
     /**
-     * Starts background download with yt-dlp and associates client IP for quota management
+     * Starts background download via yt-dlp, Cobalt, or gallery-dl and associates client IP for quota management
      */
     startDownload(
         url: string,
@@ -634,6 +741,7 @@ export class DownloadsService {
         vcodec?: string,
         acodec?: string,
         userId?: string,
+        extra?: StartDownloadExtraOptions,
     ): { jobId: string } {
         const activeDownloads = Array.from(this.jobs.values()).filter(
             (j) => j.status === 'downloading' || j.status === 'processing',
@@ -646,8 +754,9 @@ export class DownloadsService {
             );
         }
 
+        const engine: DownloadEngine = extra?.engine || 'ytdlp';
         const jobId = randomUUID();
-        const ext = (type === 'audio_only' && formatSelection === 'bestaudio/best') ? 'mp3' : 'mp4';
+        const ext = this.resolveInitialExt(formatSelection, type, extra?.ext);
         const sanitizedTitle = (title || 'download').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
         const tempPath = path.join(os.tmpdir(), `dlw_${jobId}_${sanitizedTitle}.${ext}`);
 
@@ -658,6 +767,7 @@ export class DownloadsService {
             type,
             title,
             ext,
+            engine,
             status: 'downloading',
             filePath: tempPath,
             createdAt: Date.now(),
@@ -667,11 +777,76 @@ export class DownloadsService {
 
         this.jobs.set(jobId, job);
 
+        if (engine === 'cobalt') {
+            void this.runCobaltDownload(job, extra);
+            return { jobId };
+        }
+
+        if (engine === 'gallery_dl') {
+            void this.runGalleryDlDownload(job, extra);
+            return { jobId };
+        }
+
+        this.runYtDlpDownload(job, vcodec, acodec);
+        return { jobId };
+    }
+
+    private async runCobaltDownload(job: DownloadJob, extra?: StartDownloadExtraOptions): Promise<void> {
+        if (!this.cobaltProvider || !this.cobaltProvider.isEnabled()) {
+            this.failJob(job, 'El motor de respaldo Cobalt no está habilitado.');
+            return;
+        }
+
+        try {
+            this.logger.log(`[Job ${job.id}] Starting Cobalt download (${job.formatSelection})`);
+            await this.cobaltProvider.downloadToFile(job, {
+                formatSelection: job.formatSelection,
+                type: job.type,
+                itemIndex: extra?.itemIndex,
+                directUrl: extra?.directUrl,
+                maxDownloadSizeBytes: this.maxDownloadSizeBytes,
+                maxDownloadSizeMb: this.maxDownloadSizeMb,
+            });
+            this.logger.log(`[Job ${job.id}] Cobalt download completed successfully.`);
+        } catch (err: any) {
+            this.logger.error(`[Job ${job.id}] Cobalt download failed: ${err?.message}`);
+            const msg = err?.message === 'MAX_FILESIZE_EXCEEDED'
+                ? `El archivo excede el tamaño máximo permitido de ${this.maxDownloadSizeMb} MB.`
+                : err?.message || 'Error al descargar con Cobalt';
+            this.failJob(job, msg);
+        }
+    }
+
+    private async runGalleryDlDownload(job: DownloadJob, extra?: StartDownloadExtraOptions): Promise<void> {
+        if (!this.galleryDlProvider || !this.galleryDlProvider.isEnabled()) {
+            this.failJob(job, 'El motor gallery-dl no está habilitado.');
+            return;
+        }
+
+        try {
+            this.logger.log(`[Job ${job.id}] Starting gallery-dl download (${job.formatSelection})`);
+            await this.galleryDlProvider.downloadToFile(job, {
+                formatSelection: job.formatSelection,
+                type: job.type,
+                itemIndex: extra?.itemIndex,
+                directUrl: extra?.directUrl,
+                maxDownloadSizeBytes: this.maxDownloadSizeBytes,
+                maxDownloadSizeMb: this.maxDownloadSizeMb,
+            });
+            this.logger.log(`[Job ${job.id}] gallery-dl download completed successfully.`);
+        } catch (err: any) {
+            this.logger.error(`[Job ${job.id}] gallery-dl download failed: ${err?.message}`);
+            this.failJob(job, err?.message || 'Error al descargar con gallery-dl');
+        }
+    }
+
+    private runYtDlpDownload(job: DownloadJob, vcodec?: string, acodec?: string): void {
+        const tempPath = job.filePath!;
         const args = [
-            ...this.buildYtDlpArgs(url, formatSelection, type, tempPath, { vcodec, acodec }),
+            ...this.buildYtDlpArgs(job.url, job.formatSelection, job.type, tempPath, { vcodec, acodec }),
             '--newline', // Output progress on new lines for easy parsing
         ];
-        this.logger.log(`[Job ${jobId}] Starting yt-dlp with args: ${args.join(' ')}`);
+        this.logger.log(`[Job ${job.id}] Starting yt-dlp with args: ${args.join(' ')}`);
 
         const ytProcess = spawn('yt-dlp', args);
 
@@ -689,14 +864,12 @@ export class DownloadsService {
                 try {
                     const currentBytes = fs.statSync(tempPath).size;
                     if (currentBytes > this.maxDownloadSizeBytes) {
-                        this.logger.warn(`[Job ${jobId}] Exceeded size limit (${currentBytes} bytes). Aborting.`);
+                        this.logger.warn(`[Job ${job.id}] Exceeded size limit (${currentBytes} bytes). Aborting.`);
                         ytProcess.kill('SIGTERM');
-                        job.status = 'failed';
-                        job.error = `La descarga fue cancelada porque excede el límite máximo de ${this.maxDownloadSizeMb} MB.`;
-                        this.cleanupFile(tempPath);
-                        if (job.clientIp) {
-                            this.refundIpQuota(job.clientIp);
-                        }
+                        this.failJob(
+                            job,
+                            `La descarga fue cancelada porque excede el límite máximo de ${this.maxDownloadSizeMb} MB.`,
+                        );
                     }
                 } catch { }
             }
@@ -705,52 +878,54 @@ export class DownloadsService {
         ytProcess.stderr.on('data', (d) => (stderr += d.toString()));
 
         ytProcess.on('close', (code) => {
+            if (job.status === 'failed') return;
+
             if (code === 0 && fs.existsSync(tempPath)) {
                 // Final size check
                 try {
                     const finalSize = fs.statSync(tempPath).size;
                     if (finalSize > this.maxDownloadSizeBytes) {
-                        job.status = 'failed';
-                        job.error = `El archivo generado excede el límite de ${this.maxDownloadSizeMb} MB.`;
-                        this.cleanupFile(tempPath);
-                        if (job.clientIp) this.refundIpQuota(job.clientIp);
+                        this.failJob(job, `El archivo generado excede el límite de ${this.maxDownloadSizeMb} MB.`);
                         return;
                     }
                 } catch { }
 
-                this.logger.log(`[Job ${jobId}] Download completed successfully.`);
+                this.logger.log(`[Job ${job.id}] Download completed successfully.`);
                 job.progressPercent = 100;
                 job.status = 'completed';
             } else {
-                this.logger.error(`[Job ${jobId}] Failed with exit code ${code}. Stderr: ${stderr}`);
-                job.status = 'failed';
-
                 const lowerErr = stderr.toLowerCase();
-                if (lowerErr.includes('max-filesize') || lowerErr.includes('larger than')) {
-                    job.error = `El archivo excede el tamaño máximo permitido de ${this.maxDownloadSizeMb} MB.`;
-                } else {
-                    job.error = stderr || `Proceso finalizado (código ${code})`;
+                const isSizeError = lowerErr.includes('max-filesize') || lowerErr.includes('larger than');
+
+                // Runtime fallback to Cobalt if yt-dlp failed mid-download due to non-size errors
+                if (!isSizeError && this.cobaltProvider?.isEnabled()) {
+                    this.logger.warn(`[Job ${job.id}] yt-dlp failed (code ${code}), retrying via Cobalt fallback...`);
+                    this.cleanupFile(tempPath);
+                    const cobaltSelection = job.type === 'audio_only'
+                        ? 'cobalt:audio:mp3'
+                        : job.type === 'video_only'
+                            ? 'cobalt:mute:1080'
+                            : 'cobalt:auto:1080';
+                    job.engine = 'cobalt';
+                    job.formatSelection = cobaltSelection;
+                    job.progressPercent = 0;
+                    job.status = 'downloading';
+                    void this.runCobaltDownload(job);
+                    return;
                 }
 
-                this.cleanupFile(tempPath);
-                // Refund quota if download failed so the user doesn't lose allowance
-                if (job.clientIp) {
-                    this.refundIpQuota(job.clientIp);
-                }
+                this.logger.error(`[Job ${job.id}] Failed with exit code ${code}. Stderr: ${stderr}`);
+                const errMsg = isSizeError
+                    ? `El archivo excede el tamaño máximo permitido de ${this.maxDownloadSizeMb} MB.`
+                    : (stderr || `Proceso finalizado (código ${code})`);
+                this.failJob(job, errMsg);
             }
         });
 
         ytProcess.on('error', (err) => {
-            this.logger.error(`[Job ${jobId}] Error spawning yt-dlp:`, err);
-            job.status = 'failed';
-            job.error = err.message;
-            this.cleanupFile(tempPath);
-            if (job.clientIp) {
-                this.refundIpQuota(job.clientIp);
-            }
+            this.logger.error(`[Job ${job.id}] Error spawning yt-dlp:`, err);
+            this.failJob(job, err.message);
         });
-
-        return { jobId };
     }
 
     /**
@@ -761,14 +936,21 @@ export class DownloadsService {
     }
 
     /**
-     * Cleans up a temporary file safely
+     * Cleans up a temporary file and optional temp directory safely
      */
-    cleanupFile(filePath?: string) {
+    cleanupFile(filePath?: string, tempDir?: string) {
         if (filePath && fs.existsSync(filePath)) {
             try {
                 fs.unlinkSync(filePath);
             } catch (err) {
                 this.logger.warn(`Could not remove temp file: ${filePath}`, err);
+            }
+        }
+        if (tempDir && fs.existsSync(tempDir)) {
+            try {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+            } catch (err) {
+                this.logger.warn(`Could not remove temp dir: ${tempDir}`, err);
             }
         }
     }
@@ -780,7 +962,7 @@ export class DownloadsService {
         const threshold = Date.now() - 30 * 60 * 1000;
         for (const [id, job] of this.jobs.entries()) {
             if (job.createdAt < threshold) {
-                this.cleanupFile(job.filePath);
+                this.cleanupFile(job.filePath, job.tempDir);
                 this.jobs.delete(id);
             }
         }

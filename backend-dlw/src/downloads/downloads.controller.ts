@@ -14,8 +14,8 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import * as fs from 'fs';
-import { DownloadsService } from './downloads.service';
-import type { FormatType } from './downloads.service';
+import { DownloadsService, type StartDownloadExtraOptions } from './downloads.service';
+import type { DownloadEngine, FormatType } from './downloads.types';
 import { OptionalSupabaseAuthGuard, type AuthenticatedRequest } from '../auth/auth.guards';
 import { UsageService } from '../usage/usage.service';
 
@@ -86,6 +86,10 @@ export class DownloadsController {
         @Req() req?: AuthenticatedRequest,
         @Body('vcodec') vcodec?: string,
         @Body('acodec') acodec?: string,
+        @Body('engine') engine?: DownloadEngine,
+        @Body('itemIndex') itemIndex?: number,
+        @Body('directUrl') directUrl?: string,
+        @Body('ext') ext?: string,
     ) {
         if (!url || !formatSelection) {
             throw new HttpException(
@@ -105,8 +109,31 @@ export class DownloadsController {
             this.downloadsService.checkAndIncrementIpQuota(clientIp);
         }
 
-        const validTypes: FormatType[] = ['video_audio', 'video_only', 'audio_only'];
+        const validTypes: FormatType[] = ['video_audio', 'video_only', 'audio_only', 'image'];
         const resolvedType = validTypes.includes(type) ? type : 'video_audio';
+
+        const validEngines: DownloadEngine[] = ['ytdlp', 'cobalt', 'gallery_dl'];
+        const resolvedEngine = engine && validEngines.includes(engine) ? engine : undefined;
+
+        const extra: StartDownloadExtraOptions = {};
+        if (resolvedEngine) extra.engine = resolvedEngine;
+        if (typeof itemIndex === 'number' && Number.isFinite(itemIndex)) extra.itemIndex = itemIndex;
+        if (typeof directUrl === 'string' && directUrl.trim()) extra.directUrl = directUrl.trim();
+        if (typeof ext === 'string' && ext.trim()) extra.ext = ext.trim();
+
+        if (Object.keys(extra).length > 0) {
+            return this.downloadsService.startDownload(
+                url.trim(),
+                formatSelection,
+                resolvedType,
+                title || 'video',
+                clientIp,
+                vcodec,
+                acodec,
+                req?.user?.id,
+                extra,
+            );
+        }
 
         return this.downloadsService.startDownload(
             url.trim(),
@@ -180,7 +207,24 @@ export class DownloadsController {
         const sanitizedTitle = (job.title || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
         const filename = `${sanitizedTitle}.${job.ext}`;
 
-        const contentType = job.ext === 'mp3' ? 'audio/mpeg' : 'video/mp4';
+        const mimeTypes: Record<string, string> = {
+            mp4: 'video/mp4',
+            webm: 'video/webm',
+            mov: 'video/quicktime',
+            mkv: 'video/x-matroska',
+            mp3: 'audio/mpeg',
+            m4a: 'audio/mp4',
+            opus: 'audio/opus',
+            ogg: 'audio/ogg',
+            wav: 'audio/wav',
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            png: 'image/png',
+            webp: 'image/webp',
+            gif: 'image/gif',
+            zip: 'application/zip',
+        };
+        const contentType = mimeTypes[(job.ext || '').toLowerCase()] || 'application/octet-stream';
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.setHeader('Content-Length', stat.size);
